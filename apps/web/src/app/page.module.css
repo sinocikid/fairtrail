@@ -3,6 +3,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
+}
+
+.themeToggle {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
 }
 
 /* Hero */

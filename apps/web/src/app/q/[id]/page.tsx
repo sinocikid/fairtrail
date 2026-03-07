@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { PriceChart } from '@/components/PriceChart';
 import { BestPrice } from '@/components/BestPrice';
 import { PriceHistory } from '@/components/PriceHistory';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import styles from './page.module.css';
 
 interface Props {
@@ -59,6 +60,9 @@ export default async function ChartPage({ params }: Props) {
 
   return (
     <main className={styles.root}>
+      <div className={styles.themeToggle}>
+        <ThemeToggle />
+      </div>
       <header className={styles.header}>
         <div className={styles.route}>
           <span className={styles.code}>{query.origin}</span>

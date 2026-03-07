@@ -1,37 +1,68 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Outfit:wght@300..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/* ============================================
+   Fairtrail Design System — "Altitude"
+   Aviation departure board aesthetic
+   ============================================ */
 
 :root {
-  /* Background */
-  --bg: #060806;
-  --surface: #0f1610;
-  --elevated: #172013;
-  --border: #1e2d1a;
-
-  /* Accent */
-  --accent: #22c55e;
-  --accent-dim: #166534;
-  --accent-glow: rgba(34, 197, 94, 0.15);
-
-  /* Text */
-  --text: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --muted: #64748b;
-
-  /* Semantic */
-  --price-up: #ef4444;
-  --price-down: #22c55e;
-  --price-stable: #64748b;
-  --warning: #f59e0b;
-
   /* Typography */
-  --font-display: 'Space Mono', monospace;
-  --font-body: 'DM Sans', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body: 'Outfit', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
 
   /* Spacing */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  /* Semantic (shared) */
+  --price-up: #ef4444;
+  --price-down: #10b981;
+  --price-stable: #64748b;
+  --warning: #f59e0b;
+}
+
+/* ---- Dark theme (default) ---- */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #080f1a;
+  --surface: #0f1729;
+  --elevated: #182036;
+  --border: #243049;
+
+  --accent: #f0a500;
+  --accent-dim: #7c5600;
+  --accent-glow: rgba(240, 165, 0, 0.1);
+  --accent-hover: #ffb820;
+
+  --text: #e8edf5;
+  --text-secondary: #8b9ec2;
+  --muted: #5a6f96;
+}
+
+/* ---- Light theme ---- */
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f5f2ec;
+  --surface: #ffffff;
+  --elevated: #ede9e1;
+  --border: #d5cfc4;
+
+  --accent: #c78800;
+  --accent-dim: #e8d5a8;
+  --accent-glow: rgba(199, 136, 0, 0.08);
+  --accent-hover: #a87200;
+
+  --text: #1a1f2e;
+  --text-secondary: #5a6275;
+  --muted: #8e95a5;
+
+  --price-up: #dc2626;
+  --price-down: #059669;
 }
 
 *,
@@ -42,10 +73,6 @@
   padding: 0;
 }
 
-html {
-  color-scheme: dark;
-}
-
 body {
   font-family: var(--font-body);
   background: var(--bg);
@@ -53,6 +80,7 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 a {
@@ -73,4 +101,21 @@ kbd {
 ::selection {
   background: var(--accent-dim);
   color: var(--text);
+}
+
+/* Subtle scan-line texture for dark mode depth */
+[data-theme='dark'] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  mix-blend-mode: multiply;
 }

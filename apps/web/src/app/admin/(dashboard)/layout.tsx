@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import styles from './layout.module.css';
 
 const NAV_ITEMS = [
@@ -33,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
         </div>
+        <ThemeToggle />
         <button className={styles.logout} onClick={handleLogout}>
           Logout
         </button>

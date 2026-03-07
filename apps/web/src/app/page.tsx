@@ -1,9 +1,13 @@
 import styles from './page.module.css';
 import { SearchBar } from '@/components/SearchBar';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function HomePage() {
   return (
     <main className={styles.root}>
+      <div className={styles.themeToggle}>
+        <ThemeToggle />
+      </div>
       <div className={styles.hero}>
         <h1 className={styles.title}>Fairtrail</h1>
         <p className={styles.tagline}>

@@ -37,7 +37,7 @@ function getAirlineColor(airline: string, index: number): string {
   for (const [key, color] of Object.entries(AIRLINE_COLORS)) {
     if (airline.toLowerCase().includes(key.toLowerCase())) return color;
   }
-  const fallback = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+  const fallback = ['#f0a500', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4'];
   return fallback[index % fallback.length]!;
 }
 
@@ -89,15 +89,15 @@ export function PriceChart({ snapshots }: { snapshots: Snapshot[] }) {
         layout={{
           paper_bgcolor: 'transparent',
           plot_bgcolor: 'transparent',
-          font: { family: 'JetBrains Mono, monospace', color: '#94a3b8', size: 11 },
+          font: { family: 'IBM Plex Mono, monospace', color: '#8b9ec2', size: 11 },
           margin: { t: 20, r: 20, b: 50, l: 60 },
           xaxis: {
-            gridcolor: '#1e2d1a',
+            gridcolor: '#243049',
             tickformat: '%b %d',
             title: { text: '' },
           },
           yaxis: {
-            gridcolor: '#1e2d1a',
+            gridcolor: '#243049',
             tickprefix: '$',
             title: { text: '' },
           },

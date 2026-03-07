@@ -95,12 +95,16 @@ npm run ci                     # lint + typecheck + build
 
 Models: `Query` (tracked flights), `PriceSnapshot` (price data points), `FetchRun` (scrape run logs), `ExtractionConfig` (LLM settings singleton), `ApiUsageLog` (cost tracking).
 
-## Design System: "Flight Deck"
+## Design System: "Altitude"
 
-Background: `#060806`. Surface: `#0f1610`. Elevated: `#172013`. Accent: `#22c55e` (green).
-Fonts: Space Mono (display/headings), DM Sans (body), JetBrains Mono (data/prices).
+Supports light/dark themes via `data-theme` attribute on `<html>`.
 
-Aviation instrument panel aesthetic — dark, precise, utilitarian.
+**Dark (default):** bg `#080f1a`, surface `#0f1729`, elevated `#182036`, accent `#f0a500` (amber).
+**Light:** bg `#f5f2ec`, surface `#ffffff`, elevated `#ede9e1`, accent `#c78800` (deep amber).
+
+Fonts: Bricolage Grotesque (display), Outfit (body), IBM Plex Mono (data).
+
+Departure board / atmospheric aviation aesthetic — deep navy, amber glow, precise typography.
 
 ## Engineering Patterns
 
