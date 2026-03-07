@@ -12,7 +12,8 @@
 | AI | Anthropic Claude, OpenAI GPT, Google Gemini, Claude Code CLI |
 | Browser | Playwright (headless Chromium for Google Flights scraping) |
 | Charts | Plotly.js (interactive price evolution) |
-| Hosting | Hetzner VPS (Docker Compose + Caddy) |
+| Hosting | Hetzner VPS (Docker Compose + Caddy) — fairtrail.org |
+| CI/CD | GitHub Actions (CI + Deploy on push to main) |
 
 ## Monorepo
 
@@ -59,6 +60,7 @@ npm run ci                     # lint + typecheck + build
 | `api/admin/queries/route.ts` | GET — list all queries |
 | `api/admin/queries/[id]/route.ts` | PATCH/DELETE — manage query |
 | `api/admin/config/route.ts` | GET/PATCH — extraction config |
+| `api/health/route.ts` | GET — health check (DB + Redis) |
 
 ### `apps/web/src/components/` — UI components
 

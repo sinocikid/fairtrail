@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
 
 const SESSION_COOKIE = 'ft-session';
 
-function verifyTokenInMiddleware(token: string): boolean {
+async function verifyTokenInMiddleware(token: string): Promise<boolean> {
   const secret = process.env.ADMIN_SESSION_SECRET;
   if (!secret) return false;
 
@@ -13,17 +12,29 @@ function verifyTokenInMiddleware(token: string): boolean {
   const payload = token.slice(0, lastDot);
   const sig = token.slice(lastDot + 1);
 
-  const expected = createHmac('sha256', secret).update(payload).digest('hex');
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const expected = Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
   return sig === expected;
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Admin pages (not login) — require session
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     const token = request.cookies.get(SESSION_COOKIE)?.value;
-    if (!token || !verifyTokenInMiddleware(token)) {
+    if (!token || !(await verifyTokenInMiddleware(token))) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
   }
@@ -31,7 +42,7 @@ export function middleware(request: NextRequest) {
   // Admin API routes — require session
   if (pathname.startsWith('/api/admin') && !pathname.startsWith('/api/admin/auth')) {
     const token = request.cookies.get(SESSION_COOKIE)?.value;
-    if (!token || !verifyTokenInMiddleware(token)) {
+    if (!token || !(await verifyTokenInMiddleware(token))) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
   }

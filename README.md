@@ -86,7 +86,7 @@ The scraper runs on a configurable interval (1h–24h, set via admin panel). Eac
 | Extraction | LLM — Anthropic, OpenAI, Google, or Claude Code | **Only cost** |
 | Charts | Plotly.js (interactive) | Free |
 | Cron | systemd timer | Free |
-| Hosting | Docker + Caddy | Free (existing VPS) |
+| Hosting | Docker + Caddy @ [fairtrail.org](https://fairtrail.org) | Free (existing VPS) |
 | Secrets | Doppler | Free tier |
 
 ## Quick Start

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Fairtrail flight price scrape every 6 hours
+
+[Timer]
+OnCalendar=*-*-* 00/6:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
