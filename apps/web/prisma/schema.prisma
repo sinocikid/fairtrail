@@ -24,6 +24,8 @@ model Query {
   cabinClass      String   @default("economy")
   deleteToken     String?
   active          Boolean  @default(true)
+  isSeed          Boolean  @default(false)
+  lookAheadDays   Int      @default(14)
   expiresAt       DateTime
   firstViewedAt   DateTime?
   scrapeInterval  Int      @default(6) // hours
@@ -35,6 +37,7 @@ model Query {
 
   @@index([active])
   @@index([expiresAt])
+  @@index([isSeed])
 }
 
 model PriceSnapshot {

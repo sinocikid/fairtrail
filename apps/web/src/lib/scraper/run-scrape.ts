@@ -22,9 +22,19 @@ export async function runScrapeForQuery(queryId: string): Promise<ScrapeResult> 
   });
 
   try {
+    // For seed queries, compute rolling date window from today
+    const searchParams = query.isSeed
+      ? {
+          origin: query.origin,
+          destination: query.destination,
+          dateFrom: new Date(),
+          dateTo: new Date(Date.now() + query.lookAheadDays * 24 * 60 * 60 * 1000),
+        }
+      : query;
+
     // Navigate to Google Flights
-    const { html, url } = await navigateGoogleFlights(query);
-    const travelDateFallback = query.dateFrom.toISOString().split('T')[0]!;
+    const { html, url } = await navigateGoogleFlights(searchParams);
+    const travelDateFallback = searchParams.dateFrom.toISOString().split('T')[0]!;
 
     // Extract prices via LLM with user's filters
     const filters = {
@@ -111,7 +121,7 @@ export async function runScrapeForQuery(queryId: string): Promise<ScrapeResult> 
 export async function cleanupUnvisitedQueries(): Promise<number> {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const result = await prisma.query.deleteMany({
-    where: { firstViewedAt: null, createdAt: { lt: cutoff } },
+    where: { firstViewedAt: null, createdAt: { lt: cutoff }, isSeed: false },
   });
   return result.count;
 }
@@ -124,7 +134,10 @@ export async function runScrapeAll(): Promise<ScrapeResult[]> {
   const activeQueries = await prisma.query.findMany({
     where: {
       active: true,
-      expiresAt: { gt: new Date() },
+      OR: [
+        { isSeed: true },
+        { expiresAt: { gt: new Date() } },
+      ],
     },
     include: {
       fetchRuns: {
@@ -136,12 +149,13 @@ export async function runScrapeAll(): Promise<ScrapeResult[]> {
   });
 
   // Filter: only scrape if enough time has passed since last run
+  // Use per-query scrapeInterval, falling back to global default
   const now = Date.now();
   const dueQueries = activeQueries.filter((q) => {
     const lastRun = q.fetchRuns[0];
     if (!lastRun) return true; // never scraped
     const hoursSince = (now - lastRun.startedAt.getTime()) / (1000 * 60 * 60);
-    return hoursSince >= globalInterval;
+    return hoursSince >= (q.scrapeInterval ?? globalInterval);
   });
 
   const results: ScrapeResult[] = [];
