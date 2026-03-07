@@ -9,8 +9,28 @@ export default async function HomePage() {
   const token = await getSessionToken();
   const isAdmin = token ? verifySessionToken(token) : false;
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'Fairtrail',
+    url: 'https://fairtrail.org',
+    description:
+      'Track flight prices over time with shareable charts. See how fares evolve, compare airlines, and book at the right moment.',
+    applicationCategory: 'TravelApplication',
+    operatingSystem: 'Any',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+  };
+
   return (
     <main className={styles.root}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className={styles.topBar}>
         {isAdmin && (
           <Link href="/admin" className={styles.adminLink} title="Admin Panel">
