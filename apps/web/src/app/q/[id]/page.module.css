@@ -1,0 +1,130 @@
+.root {
+  min-height: 100vh;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Header */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.route {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.code {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+.arrow {
+  font-size: 1.5rem;
+  color: var(--muted);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.sep {
+  color: var(--border);
+}
+
+.expiry {
+  margin-top: 0.25rem;
+}
+
+.activeBadge {
+  display: inline-flex;
+  padding: 0.25rem 0.625rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-dim);
+  border-radius: 100px;
+}
+
+.expiredBadge {
+  display: inline-flex;
+  padding: 0.25rem 0.625rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--price-up);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 100px;
+}
+
+/* Expired notice */
+.expiredNotice {
+  padding: 1rem;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.expiredNotice p + p {
+  margin-top: 0.25rem;
+}
+
+/* Sections */
+.chart,
+.best,
+.history {
+  width: 100%;
+}
+
+/* Footer */
+.footer {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.footer p {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.footer a {
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .root {
+    padding: 1.5rem 1rem;
+  }
+
+  .code {
+    font-size: 1.5rem;
+  }
+
+  .meta {
+    font-size: 0.8125rem;
+  }
+}

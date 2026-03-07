@@ -1,0 +1,97 @@
+.root {
+  width: 100%;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.table th {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--surface);
+}
+
+.date {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.price {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.stops {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.trendUp {
+  color: var(--price-up);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.trendDown {
+  color: var(--price-down);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.trendStable {
+  color: var(--price-stable);
+}
+
+.bookLink {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.bookLink:hover {
+  text-decoration: underline;
+}

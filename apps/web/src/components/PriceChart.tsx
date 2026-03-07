@@ -1,0 +1,127 @@
+'use client';
+
+import { useMemo } from 'react';
+import dynamic from 'next/dynamic';
+import styles from './PriceChart.module.css';
+
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
+
+interface Snapshot {
+  id: string;
+  travelDate: string;
+  price: number;
+  currency: string;
+  airline: string;
+  bookingUrl: string;
+  stops: number;
+  duration: string | null;
+  scrapedAt: string;
+}
+
+const AIRLINE_COLORS: Record<string, string> = {
+  Delta: '#e31837',
+  United: '#002244',
+  American: '#0078d2',
+  'Air France': '#002157',
+  Southwest: '#ffbf27',
+  JetBlue: '#003876',
+  Spirit: '#ffe600',
+  Alaska: '#01426a',
+  British: '#2e5c99',
+  Lufthansa: '#05164d',
+  Emirates: '#d71a21',
+  KLM: '#00a1de',
+};
+
+function getAirlineColor(airline: string, index: number): string {
+  for (const [key, color] of Object.entries(AIRLINE_COLORS)) {
+    if (airline.toLowerCase().includes(key.toLowerCase())) return color;
+  }
+  const fallback = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+  return fallback[index % fallback.length]!;
+}
+
+export function PriceChart({ snapshots }: { snapshots: Snapshot[] }) {
+  const traces = useMemo(() => {
+    const byAirline = new Map<string, Snapshot[]>();
+    for (const s of snapshots) {
+      const existing = byAirline.get(s.airline) ?? [];
+      existing.push(s);
+      byAirline.set(s.airline, existing);
+    }
+
+    let idx = 0;
+    return Array.from(byAirline.entries()).map(([airline, points]) => {
+      const color = getAirlineColor(airline, idx++);
+      return {
+        x: points.map((p) => p.scrapedAt),
+        y: points.map((p) => p.price),
+        type: 'scatter' as const,
+        mode: 'lines+markers' as const,
+        name: airline,
+        line: { color, width: 2 },
+        marker: { color, size: 6 },
+        customdata: points.map((p) => [p.bookingUrl, p.stops, p.duration, p.currency]),
+        hovertemplate:
+          '<b>%{y:$.2f}</b> %{customdata[3]}<br>' +
+          '%{x|%b %d, %H:%M}<br>' +
+          '%{customdata[2]}<br>' +
+          '<extra>%{fullData.name}</extra>',
+      };
+    });
+  }, [snapshots]);
+
+  if (snapshots.length === 0) {
+    return (
+      <div className={styles.empty}>
+        <p className={styles.emptyText}>No price data yet</p>
+        <p className={styles.emptyHint}>
+          Prices will appear after the first scrape runs. Check back soon.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.root}>
+      <Plot
+        data={traces}
+        layout={{
+          paper_bgcolor: 'transparent',
+          plot_bgcolor: 'transparent',
+          font: { family: 'JetBrains Mono, monospace', color: '#94a3b8', size: 11 },
+          margin: { t: 20, r: 20, b: 50, l: 60 },
+          xaxis: {
+            gridcolor: '#1e2d1a',
+            tickformat: '%b %d',
+            title: { text: '' },
+          },
+          yaxis: {
+            gridcolor: '#1e2d1a',
+            tickprefix: '$',
+            title: { text: '' },
+          },
+          legend: {
+            orientation: 'h',
+            y: -0.15,
+            font: { size: 11 },
+          },
+          hovermode: 'closest',
+          autosize: true,
+        }}
+        config={{
+          responsive: true,
+          displayModeBar: false,
+        }}
+        style={{ width: '100%', height: '400px' }}
+        onClick={(data) => {
+          const point = data.points[0];
+          if (point?.customdata) {
+            const url = (point.customdata as string[])[0];
+            if (url) window.open(url, '_blank');
+          }
+        }}
+      />
+    </div>
+  );
+}
