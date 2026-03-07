@@ -3,8 +3,6 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { classifyBot, classifyByHeaders, isMaliciousPath } from '@/lib/analytics/bots';
 
 const SESSION_COOKIE = 'ft-session';
-const GATE_COOKIE = 'ft-gate';
-const GATE_ACTIVE_COOKIE = 'ft-gate-active';
 
 function verifyHmacToken(token: string): boolean {
   const secret = process.env.ADMIN_SESSION_SECRET;
@@ -22,26 +20,6 @@ function verifyHmacToken(token: string): boolean {
   } catch {
     return false;
   }
-}
-
-const GATE_EXEMPT = [
-  '/gate',
-  '/api/gate',
-  '/q/',
-  '/api/queries/',
-  '/admin',
-  '/api/admin',
-  '/api/health',
-  '/api/cron',
-  '/api/analytics',
-];
-
-function isGateExempt(pathname: string): boolean {
-  return GATE_EXEMPT.some((prefix) => pathname.startsWith(prefix));
-}
-
-function isApiRoute(pathname: string): boolean {
-  return pathname.startsWith('/api/');
 }
 
 export function middleware(request: NextRequest) {
@@ -70,20 +48,6 @@ export function middleware(request: NextRequest) {
     const token = request.cookies.get(SESSION_COOKIE)?.value;
     if (!token || !verifyHmacToken(token)) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-    }
-  }
-
-  // Site gate — only enforce if gate is active (ft-gate-active cookie present)
-  if (!isGateExempt(pathname)) {
-    const gateActive = request.cookies.get(GATE_ACTIVE_COOKIE)?.value;
-    if (gateActive) {
-      const gateToken = request.cookies.get(GATE_COOKIE)?.value;
-      if (!gateToken || !verifyHmacToken(gateToken)) {
-        if (isApiRoute(pathname)) {
-          return NextResponse.json({ ok: false, error: 'Site password required' }, { status: 401 });
-        }
-        return NextResponse.redirect(new URL('/gate', request.url));
-      }
     }
   }
 
