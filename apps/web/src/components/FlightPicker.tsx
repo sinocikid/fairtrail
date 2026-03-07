@@ -23,7 +23,9 @@ export function FlightPicker({
   onBack: () => void;
   loading: boolean;
 }) {
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<Set<number>>(
+    () => new Set(flights.slice(0, MAX_SELECTIONS).map((_, i) => i))
+  );
 
   const toggle = (index: number) => {
     setSelected((prev) => {
@@ -67,6 +69,7 @@ export function FlightPicker({
           </button>
         </div>
       </div>
+      <p className={styles.hint}>Select up to {MAX_SELECTIONS} flights to track daily price changes</p>
 
       {flights.length === 0 ? (
         <div className={styles.empty}>
