@@ -117,17 +117,37 @@ export async function cleanupUnvisitedQueries(): Promise<number> {
 }
 
 export async function runScrapeAll(): Promise<ScrapeResult[]> {
+  // Get global scrape interval default
+  const config = await prisma.extractionConfig.findFirst({ where: { id: 'singleton' } });
+  const globalInterval = config?.scrapeInterval ?? 6;
+
   const activeQueries = await prisma.query.findMany({
     where: {
       active: true,
       expiresAt: { gt: new Date() },
     },
+    include: {
+      fetchRuns: {
+        orderBy: { startedAt: 'desc' },
+        take: 1,
+        select: { startedAt: true },
+      },
+    },
+  });
+
+  // Filter: only scrape if enough time has passed since last run
+  const now = Date.now();
+  const dueQueries = activeQueries.filter((q) => {
+    const lastRun = q.fetchRuns[0];
+    if (!lastRun) return true; // never scraped
+    const hoursSince = (now - lastRun.startedAt.getTime()) / (1000 * 60 * 60);
+    return hoursSince >= globalInterval;
   });
 
   const results: ScrapeResult[] = [];
 
   // Run sequentially to avoid overwhelming Google Flights
-  for (const query of activeQueries) {
+  for (const query of dueQueries) {
     const result = await runScrapeForQuery(query.id);
     results.push(result);
 
