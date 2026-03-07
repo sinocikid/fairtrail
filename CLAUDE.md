@@ -99,8 +99,8 @@ Models: `Query` (tracked flights), `PriceSnapshot` (price data points), `FetchRu
 
 Supports light/dark themes via `data-theme` attribute on `<html>`.
 
-**Dark (default):** bg `#080f1a`, surface `#0f1729`, elevated `#182036`, accent `#f0a500` (amber).
-**Light:** bg `#f5f2ec`, surface `#ffffff`, elevated `#ede9e1`, accent `#c78800` (deep amber).
+**Dark (default):** bg `#080f1a`, surface `#0f1729`, elevated `#182036`, accent `#06b6d4` (aviation cyan).
+**Light:** bg `#f5f2ec`, surface `#ffffff`, elevated `#ede9e1`, accent `#0891b2` (deep cyan).
 
 Fonts: Bricolage Grotesque (display), Outfit (body), IBM Plex Mono (data).
 

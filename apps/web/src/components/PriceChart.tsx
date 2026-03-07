@@ -37,7 +37,7 @@ function getAirlineColor(airline: string, index: number): string {
   for (const [key, color] of Object.entries(AIRLINE_COLORS)) {
     if (airline.toLowerCase().includes(key.toLowerCase())) return color;
   }
-  const fallback = ['#f0a500', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4'];
+  const fallback = ['#06b6d4', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#f0a500'];
   return fallback[index % fallback.length]!;
 }
 
