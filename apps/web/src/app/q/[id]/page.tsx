@@ -5,6 +5,7 @@ import { PriceChart } from '@/components/PriceChart';
 import { BestPrice } from '@/components/BestPrice';
 import { PriceHistory } from '@/components/PriceHistory';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { DeleteTracker } from '@/components/DeleteTracker';
 import styles from './page.module.css';
 
 interface Props {
@@ -162,10 +163,13 @@ export default async function ChartPage({ params }: Props) {
       </section>
 
       <footer className={styles.footer}>
-        <p>
-          Tracked since {formatDate(query.createdAt)}
-          {lastRun && ` · Last checked ${timeAgo(lastRun.startedAt)}`}
-        </p>
+        <div className={styles.footerRow}>
+          <p>
+            Tracked since {formatDate(query.createdAt)}
+            {lastRun && ` · Last checked ${timeAgo(lastRun.startedAt)}`}
+          </p>
+          {!expired && <DeleteTracker queryId={id} />}
+        </div>
         <p>
           <a href="/">Fairtrail</a> — your data, not theirs
         </p>

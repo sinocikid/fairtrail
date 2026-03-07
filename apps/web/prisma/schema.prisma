@@ -22,6 +22,7 @@ model Query {
   preferredAirlines String[] @default([])
   timePreference  String   @default("any")
   cabinClass      String   @default("economy")
+  deleteToken     String?
   active          Boolean  @default(true)
   expiresAt       DateTime
   firstViewedAt   DateTime?
