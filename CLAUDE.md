@@ -34,7 +34,7 @@ npm install                    # All workspaces
 docker compose -f docker-compose.prod.yml up -d db redis
 npx prisma db push --schema=apps/web/prisma/schema.prisma
 npx prisma generate --schema=apps/web/prisma/schema.prisma
-npm run dev                    # Web app on :3002 (wraps with doppler run)
+npm run dev                    # Web app on :3003 (wraps with doppler run)
 npm run ci                     # lint + typecheck + build
 ```
 

@@ -20,7 +20,7 @@ FROM node:22-alpine AS runner
 RUN apk add --no-cache libc6-compat openssl chromium
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3002
+ENV PORT=3003
 ENV HOSTNAME="0.0.0.0"
 ENV CHROME_PATH=/usr/bin/chromium-browser
 RUN addgroup --system --gid 1001 nodejs && \
@@ -43,5 +43,5 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/prisma ./apps/web/prisma
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 USER nextjs
-EXPOSE 3002
+EXPOSE 3003
 ENTRYPOINT ["./docker-entrypoint.sh"]

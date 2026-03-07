@@ -1,5 +1,5 @@
 fairtrail.org {
-	reverse_proxy localhost:3002
+	reverse_proxy localhost:3003
 
 	basicauth * {
 		fairtrail $2a$14$wc6AcgKWp8aXBips4WzSH.AUTqqEwD5cID19/rpEhMtUXVwaCi6XK
