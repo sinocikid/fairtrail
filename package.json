@@ -1,0 +1,20 @@
+{
+  "name": "fairtrail",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "doppler run -- npm run dev --workspace=@fairtrail/web",
+    "build": "npm run build --workspace=@fairtrail/web",
+    "lint": "npm run lint --workspace=@fairtrail/web",
+    "typecheck": "npm run typecheck --workspace=@fairtrail/web",
+    "ci": "npm run lint && npm run typecheck && npm run build",
+    "db:push": "doppler run -- npx prisma db push --schema=apps/web/prisma/schema.prisma",
+    "db:generate": "npx prisma generate --schema=apps/web/prisma/schema.prisma",
+    "db:migrate": "doppler run -- npx prisma migrate deploy --schema=apps/web/prisma/schema.prisma"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

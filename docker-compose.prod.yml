@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fairtrail
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    ports:
+      - "127.0.0.1:6380:6379"
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "127.0.0.1:3002:3002"
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/fairtrail
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
+      CLAUDE_CODE_ENABLED: ${CLAUDE_CODE_ENABLED:-true}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET}
+      CRON_SECRET: ${CRON_SECRET}
+      CHROME_PATH: /usr/bin/chromium-browser
+      NODE_ENV: production
+
+volumes:
+  pgdata:
+  redisdata:

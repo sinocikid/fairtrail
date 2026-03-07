@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Query {
+  id              String   @id @default(cuid())
+  rawInput        String
+  origin          String
+  originName      String
+  destination     String
+  destinationName String
+  dateFrom        DateTime
+  dateTo          DateTime
+  flexibility     Int      @default(0)
+  active          Boolean  @default(true)
+  expiresAt       DateTime
+  scrapeInterval  Int      @default(6) // hours
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  snapshots PriceSnapshot[]
+  fetchRuns FetchRun[]
+
+  @@index([active])
+  @@index([expiresAt])
+}
+
+model PriceSnapshot {
+  id         String   @id @default(cuid())
+  queryId    String
+  travelDate DateTime
+  price      Float
+  currency   String   @default("USD")
+  airline    String
+  bookingUrl String
+  stops      Int      @default(0)
+  duration   String?
+  scrapedAt  DateTime @default(now())
+  fetchRunId String?
+
+  query    Query     @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  fetchRun FetchRun? @relation(fields: [fetchRunId], references: [id])
+
+  @@index([queryId, scrapedAt])
+  @@index([queryId, airline])
+}
+
+model FetchRun {
+  id             String    @id @default(cuid())
+  queryId        String
+  status         String // 'success' | 'partial' | 'failed'
+  snapshotsCount Int       @default(0)
+  extractionCost Float?
+  error          String?
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  query     Query           @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  snapshots PriceSnapshot[]
+
+  @@index([queryId, startedAt])
+}
+
+model ExtractionConfig {
+  id        String   @id @default("singleton")
+  provider  String   @default("anthropic")
+  model     String   @default("claude-haiku-4-5-20251001")
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+model ApiUsageLog {
+  id           String   @id @default(cuid())
+  provider     String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  costUsd      Float
+  operation    String
+  durationMs   Int
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([provider])
+}
