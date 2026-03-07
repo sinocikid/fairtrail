@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { getSessionToken, verifySessionToken } from '@/lib/admin-auth';
 
 const INVITE_COOKIE = 'ft-invite';
 const INVITE_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
@@ -49,6 +50,9 @@ export async function getInviteCookie(): Promise<string | undefined> {
 }
 
 export async function hasValidInvite(): Promise<boolean> {
+  const session = await getSessionToken();
+  if (session && verifySessionToken(session)) return true;
+
   const token = await getInviteCookie();
   if (!token) return false;
   return verifyInviteToken(token);
