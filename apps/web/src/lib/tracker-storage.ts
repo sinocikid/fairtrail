@@ -7,6 +7,12 @@ export interface SavedTracker {
   dateFrom: string;
   dateTo: string;
   createdAt: string;
+  deleteToken?: string;
+}
+
+export function getDeleteToken(id: string): string | null {
+  const tracker = getSavedTrackers().find((t) => t.id === id);
+  return tracker?.deleteToken ?? null;
 }
 
 const STORAGE_KEY = 'ft-trackers';

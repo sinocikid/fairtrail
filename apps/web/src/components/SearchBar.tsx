@@ -170,6 +170,7 @@ export function SearchBar() {
         dateFrom: parsed.dateFrom,
         dateTo: parsed.dateTo,
         createdAt: new Date().toISOString(),
+        deleteToken: data.data.deleteToken,
       });
 
       setCreatedQuery({
