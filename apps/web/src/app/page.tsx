@@ -8,6 +8,7 @@ import { UsageStats } from '@/components/UsageStats';
 import { PriceAlerts } from '@/components/PriceAlerts';
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { Footer } from '@/components/Footer';
+import { InstallCommand } from '@/components/InstallCommand';
 import { getSessionToken, verifySessionToken } from '@/lib/admin-auth';
 
 const isSelfHosted = process.env.SELF_HOSTED === 'true';
@@ -77,15 +78,7 @@ export default async function HomePage() {
             <UsageStats />
           </>
         ) : (
-          <div className={styles.install}>
-            <code className={styles.installCode}>
-              curl -fsSL https://fairtrail.org/install.sh | sh
-            </code>
-            <p className={styles.installHint}>
-              Works with Claude Code, Codex, or any LLM API key.
-              No account needed.
-            </p>
-          </div>
+          <InstallCommand />
         )}
       </div>
 
