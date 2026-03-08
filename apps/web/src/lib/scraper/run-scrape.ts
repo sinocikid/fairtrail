@@ -31,8 +31,9 @@ export async function runScrapeForQuery(queryId: string): Promise<ScrapeResult> 
           dateFrom: new Date(),
           dateTo: new Date(Date.now() + query.lookAheadDays * 24 * 60 * 60 * 1000),
           cabinClass: query.cabinClass,
+          tripType: query.tripType,
         }
-      : { ...query, cabinClass: query.cabinClass };
+      : { ...query, cabinClass: query.cabinClass, tripType: query.tripType };
 
     // Route: airline-direct for single known airline, Google Flights otherwise
     const directAirlines = query.preferredAirlines.filter(isKnownAirline);

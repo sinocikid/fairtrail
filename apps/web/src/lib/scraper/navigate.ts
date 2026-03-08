@@ -7,6 +7,7 @@ export interface FlightSearchParams {
   dateFrom: Date;
   dateTo: Date;
   cabinClass?: string;
+  tripType?: string; // 'one_way' | 'round_trip'
 }
 
 export type NavigationSource = 'google_flights' | 'airline_direct';
@@ -21,8 +22,9 @@ export interface NavigationResult {
 function buildGoogleFlightsUrl(params: FlightSearchParams): string {
   const dateFrom = params.dateFrom.toISOString().split('T')[0];
   const dateTo = params.dateTo.toISOString().split('T')[0];
+  const oneWayPrefix = params.tripType === 'one_way' ? 'one+way+' : '';
 
-  return `https://www.google.com/travel/flights?q=flights+from+${params.origin}+to+${params.destination}+on+${dateFrom}+to+${dateTo}&curr=USD&hl=en`;
+  return `https://www.google.com/travel/flights?q=${oneWayPrefix}flights+from+${params.origin}+to+${params.destination}+on+${dateFrom}+to+${dateTo}&curr=USD&hl=en`;
 }
 
 export async function navigateGoogleFlights(
