@@ -1,4 +1,5 @@
 import { launchBrowser, createStealthContext } from './browser';
+import { getAirlineUrl } from './airline-urls';
 
 export interface FlightSearchParams {
   origin: string;
@@ -63,6 +64,63 @@ export async function navigateGoogleFlights(
 
     await context.close();
     return { html, url, resultsFound, source: 'google_flights' };
+  } finally {
+    await browser.close();
+  }
+}
+
+export async function navigateAirlineDirect(
+  params: FlightSearchParams,
+  airlineName: string
+): Promise<NavigationResult> {
+  const url = getAirlineUrl(airlineName, params);
+  if (!url) {
+    throw new Error(`No URL pattern for airline: ${airlineName}`);
+  }
+
+  const browser = await launchBrowser();
+
+  try {
+    const context = await createStealthContext(browser);
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 45_000 });
+
+    // Airline sites are slower — wait for dynamic content to render
+    await page.waitForTimeout(5000);
+
+    // Dismiss cookie/consent dialogs common on airline sites
+    try {
+      for (const label of ['Accept all', 'Accept', 'I agree', 'Accept cookies', 'OK', 'Got it']) {
+        const btn = page.locator(`button:has-text("${label}")`).first();
+        if (await btn.isVisible({ timeout: 1000 })) {
+          await btn.click();
+          await page.waitForTimeout(2000);
+          break;
+        }
+      }
+    } catch {
+      // No consent dialog — continue
+    }
+
+    // Heuristic: check if any price-like content loaded (currency symbols or digits)
+    let resultsFound = false;
+    try {
+      await page.waitForFunction(
+        () => {
+          const text = document.body?.innerText ?? '';
+          return /\$\s?\d|€\s?\d|£\s?\d|USD|EUR|GBP|\d+\.\d{2}/.test(text);
+        },
+        { timeout: 15_000 }
+      );
+      resultsFound = true;
+    } catch {
+      // No price content detected — page may be blocked or empty
+    }
+
+    const html = await page.content();
+
+    await context.close();
+    return { html, url, resultsFound, source: 'airline_direct' };
   } finally {
     await browser.close();
   }
