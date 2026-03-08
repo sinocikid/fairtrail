@@ -13,6 +13,8 @@ export interface ParsedQuery {
   destinations: Airport[];
   dateFrom: string;
   dateTo: string;
+  outboundDates?: string[];
+  returnDates?: string[];
   flexibility: number;
   maxPrice: number | null;
   maxStops: number | null;
@@ -105,12 +107,35 @@ export function ConfirmationCard({
       </div>
 
       <div className={styles.details}>
-        <div className={styles.dateRange}>
-          <span className={styles.label}>Travel window</span>
-          <span className={styles.value}>
-            {formatDate(parsed.dateFrom)} &mdash; {formatDate(parsed.dateTo)}
-          </span>
-        </div>
+        {parsed.outboundDates || parsed.returnDates ? (
+          <>
+            {parsed.outboundDates && (
+              <div className={styles.dateRange}>
+                <span className={styles.label}>
+                  {parsed.tripType === 'one_way' ? 'Departure' : 'Outbound'}
+                </span>
+                <span className={styles.value}>
+                  {parsed.outboundDates.map(formatDate).join(', ')}
+                </span>
+              </div>
+            )}
+            {parsed.returnDates && (
+              <div className={styles.dateRange}>
+                <span className={styles.label}>Return</span>
+                <span className={styles.value}>
+                  {parsed.returnDates.map(formatDate).join(', ')}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className={styles.dateRange}>
+            <span className={styles.label}>Travel window</span>
+            <span className={styles.value}>
+              {formatDate(parsed.dateFrom)} &mdash; {formatDate(parsed.dateTo)}
+            </span>
+          </div>
+        )}
 
         {parsed.flexibility > 0 && (
           <div className={styles.flexibility}>

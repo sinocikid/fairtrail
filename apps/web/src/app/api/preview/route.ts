@@ -182,6 +182,10 @@ export async function POST(request: NextRequest) {
   const { dateFrom, dateTo, maxPrice, maxStops, preferredAirlines, timePreference, cabinClass, tripType, currency: bodyCurrency } = body;
   const currency: string = typeof bodyCurrency === 'string' && bodyCurrency ? bodyCurrency : 'USD';
 
+  // Multi-date support: individual outbound/return dates
+  const outboundDates: string[] | undefined = Array.isArray(body.outboundDates) ? body.outboundDates : undefined;
+  const returnDates: string[] | undefined = Array.isArray(body.returnDates) ? body.returnDates : undefined;
+
   // Accept either arrays (new) or single values (legacy)
   const origins: Airport[] = Array.isArray(body.origins)
     ? body.origins
@@ -223,21 +227,53 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Build scrape tasks: each task is one Google Flights request
+  // When outboundDates present: one scrape per date per combo
+  // Otherwise: one scrape per combo with the full date range
+  const defaultReturnDate = returnDates?.[0] ?? dateTo;
+
+  interface ScrapeTask {
+    combo: { origin: Airport; destination: Airport };
+    outboundDate: string;     // ISO date for departure
+    returnDate: string;       // ISO date for return (same as outbound for one-way)
+  }
+
+  const tasks: ScrapeTask[] = [];
+  const datesToScrape = outboundDates ?? [dateFrom];
+
+  for (const combo of combos) {
+    for (const outDate of datesToScrape) {
+      tasks.push({
+        combo,
+        outboundDate: outDate,
+        returnDate: isOneWay ? outDate : defaultReturnDate,
+      });
+    }
+  }
+
+  // Safety cap: max 24 scrape tasks (6 dates × 4 combos)
+  if (tasks.length > 24) {
+    return apiError(`Too many date/route combinations (${tasks.length}). Max 6 dates × 4 routes = 24.`, 400);
+  }
+
   try {
     const routes: RouteResult[] = [];
 
-    // Scrape each combo sequentially (avoid rate limits)
-    for (const combo of combos) {
-      const cacheKey = buildCacheKey(combo.origin.code, combo.destination.code, dateFrom, dateTo);
+    // Scrape each task sequentially (avoid rate limits)
+    for (const task of tasks) {
+      const { combo, outboundDate, returnDate } = task;
+      const taskFrom = new Date(outboundDate + 'T00:00:00Z');
+      const taskTo = new Date(returnDate + 'T00:00:00Z');
+      const cacheKey = buildCacheKey(combo.origin.code, combo.destination.code, outboundDate, returnDate);
 
       try {
         const flights = await cached<PriceData[]>(cacheKey, () =>
           scrapeRoute({
             origin: combo.origin.code,
             destination: combo.destination.code,
-            dateFrom: from,
-            dateTo: to,
-            dateFromStr: dateFrom,
+            dateFrom: taskFrom,
+            dateTo: taskTo,
+            dateFromStr: outboundDate,
             cabinClass: cabinClass || 'economy',
             tripType: tripType || 'round_trip',
             maxPrice: maxPrice ? Number(maxPrice) : null,
@@ -248,29 +284,14 @@ export async function POST(request: NextRequest) {
           })
         );
 
-        // Group flights by travelDate when the search spans multiple days
-        const uniqueDates = [...new Set(flights.map((f) => f.travelDate))].sort();
-        if (uniqueDates.length > 1) {
-          for (const date of uniqueDates) {
-            routes.push({
-              origin: combo.origin.code,
-              originName: combo.origin.name,
-              destination: combo.destination.code,
-              destinationName: combo.destination.name,
-              flights: flights.filter((f) => f.travelDate === date),
-              date,
-            });
-          }
-        } else {
-          routes.push({
-            origin: combo.origin.code,
-            originName: combo.origin.name,
-            destination: combo.destination.code,
-            destinationName: combo.destination.name,
-            flights,
-            date: uniqueDates[0],
-          });
-        }
+        routes.push({
+          origin: combo.origin.code,
+          originName: combo.origin.name,
+          destination: combo.destination.code,
+          destinationName: combo.destination.name,
+          flights,
+          date: outboundDate,
+        });
       } catch (err) {
         // Partial failure — include route with error, continue with others
         routes.push({
@@ -279,6 +300,7 @@ export async function POST(request: NextRequest) {
           destination: combo.destination.code,
           destinationName: combo.destination.name,
           flights: [],
+          date: outboundDate,
           error: err instanceof Error ? err.message : 'Failed to search this route',
         });
       }
