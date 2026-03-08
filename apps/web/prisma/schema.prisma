@@ -125,3 +125,39 @@ model ApiUsageLog {
   @@index([createdAt])
   @@index([provider])
 }
+
+model CommunityApiKey {
+  id            String    @id @default(cuid())
+  apiKey        String    @unique
+  label         String?
+  active        Boolean   @default(true)
+  snapshotCount Int       @default(0)
+  lastSeenAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  snapshots CommunitySnapshot[]
+
+  @@index([active])
+}
+
+model CommunitySnapshot {
+  id          String   @id @default(cuid())
+  origin      String   // 3-letter IATA
+  destination String   // 3-letter IATA
+  travelDate  DateTime
+  price       Float
+  currency    String   @default("USD")
+  airline     String
+  stops       Int      @default(0)
+  cabinClass  String   @default("economy")
+  scrapedAt   DateTime
+  receivedAt  DateTime @default(now())
+  apiKeyId    String
+
+  apiKey CommunityApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([origin, destination])
+  @@index([travelDate])
+  @@index([airline])
+  @@index([apiKeyId])
+}

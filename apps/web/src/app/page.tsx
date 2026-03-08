@@ -93,7 +93,11 @@ export default async function HomePage() {
       </section>
 
       <footer className={styles.footer}>
-        <p>Fairtrail &mdash; your data, not theirs</p>
+        <p>
+          Fairtrail &mdash; your data, not theirs
+          {' '}&middot;{' '}
+          <Link href="/explore">Explore community data</Link>
+        </p>
       </footer>
     </main>
   );
