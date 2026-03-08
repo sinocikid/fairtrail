@@ -53,7 +53,7 @@ echo ""
 
 # Allow non-interactive mode (e.g., CI) by setting FAIRTRAIL_YES=1
 if [ "${FAIRTRAIL_YES:-}" != "1" ]; then
-  read -rp "  Continue? [Y/n] " CONSENT
+  read -rp "  Continue? [Y/n] " CONSENT < /dev/tty
   if [[ "$CONSENT" =~ ^[Nn]$ ]]; then
     echo ""
     echo -e "  ${DIM}No changes were made. Inspect the script:${RESET}"
@@ -99,7 +99,7 @@ if ! command -v docker &>/dev/null; then
     linux|wsl)
       warn "Docker is not installed."
       echo ""
-      read -rp "  Install Docker Engine now? (requires sudo) [Y/n] " confirm
+      read -rp "  Install Docker Engine now? (requires sudo) [Y/n] " confirm < /dev/tty
       if [[ ! "$confirm" =~ ^[Nn]$ ]]; then
         install_docker_linux
       else
@@ -155,7 +155,7 @@ port_in_use() {
 while port_in_use "$PORT"; do
   warn "Port ${PORT} is already in use."
   echo ""
-  read -rp "  Enter a different port [default: $((PORT + 1))]: " NEW_PORT
+  read -rp "  Enter a different port [default: $((PORT + 1))]: " NEW_PORT < /dev/tty
   PORT="${NEW_PORT:-$((PORT + 1))}"
 done
 
@@ -305,7 +305,7 @@ if [ "$CLAUDE_CODE_DETECTED" = false ] && [ "$CODEX_DETECTED" = false ]; then
   echo -e "  ${DIM}2. OpenAI     — https://platform.openai.com/api-keys${RESET}"
   echo -e "  ${DIM}3. Google AI  — https://aistudio.google.com/apikey${RESET}"
   echo ""
-  read -rsp "  API key: " API_KEY_VAL
+  read -rsp "  API key: " API_KEY_VAL < /dev/tty
   echo ""
 
   if [ -z "$API_KEY_VAL" ]; then
@@ -327,7 +327,7 @@ if [ "$CLAUDE_CODE_DETECTED" = false ] && [ "$CODEX_DETECTED" = false ]; then
     echo "  1) Anthropic"
     echo "  2) OpenAI"
     echo "  3) Google AI"
-    read -rp "  Choice [1-3]: " PROVIDER_CHOICE
+    read -rp "  Choice [1-3]: " PROVIDER_CHOICE < /dev/tty
     case "$PROVIDER_CHOICE" in
       1) API_KEY_VAR="ANTHROPIC_API_KEY" ;;
       2) API_KEY_VAR="OPENAI_API_KEY" ;;
@@ -397,7 +397,7 @@ if [ "$CLAUDE_CODE_DETECTED" = true ] || [ "$CODEX_DETECTED" = true ]; then
   echo ""
 
   if [ "${FAIRTRAIL_YES:-}" != "1" ]; then
-    read -rp "  Allow read-only credential mount? [Y/n] " MOUNT_CHOICE
+    read -rp "  Allow read-only credential mount? [Y/n] " MOUNT_CHOICE < /dev/tty
     if [[ "$MOUNT_CHOICE" =~ ^[Nn]$ ]]; then
       MOUNT_CONSENT=false
       warn "Skipped credential mount — you'll need to provide an API key in setup"
