@@ -1,0 +1,389 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Fairtrail CLI — wraps Docker so you never have to think about it.
+# Installed by: curl -fsSL https://fairtrail.org/install.sh | sh
+#
+# Usage:
+#   fairtrail          Start Fairtrail (Ctrl+C to stop)
+#   fairtrail start    Start in background
+#   fairtrail stop     Stop Fairtrail
+#   fairtrail logs     View live logs
+#   fairtrail status   Check if running
+#   fairtrail update   Pull latest version and restart
+#   fairtrail search   Search and track a flight
+
+BOLD='\033[1m'
+DIM='\033[2m'
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+RESET='\033[0m'
+
+FAIRTRAIL_DIR="$HOME/.fairtrail"
+PORT="${PORT:-3003}"
+BASE_URL="${FAIRTRAIL_URL:-https://fairtrail.org}"
+
+if [ ! -f "$FAIRTRAIL_DIR/docker-compose.yml" ]; then
+  echo -e "${RED}${BOLD}✗${RESET} Fairtrail not found. Run the installer first:"
+  echo -e "  curl -fsSL https://fairtrail.org/install.sh | sh"
+  exit 1
+fi
+
+cd "$FAIRTRAIL_DIR"
+
+# Resolve override file if it exists
+COMPOSE_FILES="-f docker-compose.yml"
+[ -f "docker-compose.override.yml" ] && COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.override.yml"
+
+dc() {
+  docker compose $COMPOSE_FILES "$@"
+}
+
+format_time() {
+  local iso="$1"
+  if [ -z "$iso" ] || [ "$iso" = "null" ]; then
+    echo "unknown"
+    return
+  fi
+  if date -j -f "%Y-%m-%dT%H:%M:%S" "${iso%%.*}" "+%H:%M" 2>/dev/null; then
+    return
+  fi
+  date -d "$iso" "+%H:%M" 2>/dev/null || echo "$iso"
+}
+
+fetch_health() {
+  curl -sf "http://localhost:${PORT}/api/health" 2>/dev/null
+}
+
+show_tracking_info() {
+  local health
+  health=$(fetch_health)
+  if [ -z "$health" ]; then return; fi
+
+  local queries next_scrape interval
+  queries=$(echo "$health" | grep -o '"activeQueries":[0-9]*' | cut -d: -f2)
+  next_scrape=$(echo "$health" | grep -o '"nextScrape":"[^"]*"' | cut -d'"' -f4)
+  interval=$(echo "$health" | grep -o '"intervalHours":[0-9]*' | cut -d: -f2)
+
+  if [ -n "$queries" ] && [ "$queries" != "0" ]; then
+    local next_str
+    next_str=$(format_time "$next_scrape")
+    echo -e "  ${BOLD}${queries}${RESET} active queries — next scrape at ${BOLD}${next_str}${RESET} (every ${interval:-3}h)"
+  fi
+}
+
+cmd_start_foreground() {
+  if ! docker info &>/dev/null 2>&1; then
+    echo -e "${RED}${BOLD}✗${RESET} Docker is not running. Start Docker Desktop and try again."
+    exit 1
+  fi
+
+  echo ""
+  echo -e "${BOLD}  Fairtrail${RESET}"
+  echo -e "  ${DIM}The price trail airlines don't show you${RESET}"
+  echo ""
+
+  dc up -d 2>&1 | while IFS= read -r line; do
+    echo -e "  ${DIM}${line}${RESET}"
+  done
+
+  echo -e "${CYAN}${BOLD}▸${RESET} Starting..."
+  RETRIES=60
+  until curl -sf "http://localhost:${PORT}/api/health" >/dev/null 2>&1; do
+    RETRIES=$((RETRIES - 1))
+    if [ "$RETRIES" -le 0 ]; then
+      echo -e "${YELLOW}${BOLD}!${RESET} Took too long — check: fairtrail logs"
+      break
+    fi
+    sleep 1
+  done
+
+  if [ "$RETRIES" -gt 0 ]; then
+    echo -e "${GREEN}${BOLD}✓${RESET} Running at ${BOLD}http://localhost:${PORT}${RESET}"
+  fi
+
+  echo -e "  ${DIM}Press Ctrl+C to stop${RESET}"
+  echo ""
+
+  trap 'cmd_stop; exit 0' INT TERM
+  dc logs -f web 2>/dev/null || true
+}
+
+cmd_start_background() {
+  if ! docker info &>/dev/null 2>&1; then
+    echo -e "${RED}${BOLD}✗${RESET} Docker is not running. Start Docker Desktop and try again."
+    exit 1
+  fi
+
+  dc up -d 2>&1 | while IFS= read -r line; do
+    echo -e "  ${DIM}${line}${RESET}"
+  done
+
+  echo -e "${GREEN}${BOLD}✓${RESET} Fairtrail running at ${BOLD}http://localhost:${PORT}${RESET}"
+  echo -e "  ${DIM}Stop with: fairtrail stop${RESET}"
+}
+
+cmd_stop() {
+  echo ""
+  local health
+  health=$(fetch_health)
+  if [ -n "$health" ]; then
+    local queries next_scrape interval
+    queries=$(echo "$health" | grep -o '"activeQueries":[0-9]*' | cut -d: -f2)
+    next_scrape=$(echo "$health" | grep -o '"nextScrape":"[^"]*"' | cut -d'"' -f4)
+    interval=$(echo "$health" | grep -o '"intervalHours":[0-9]*' | cut -d: -f2)
+
+    if [ -n "$queries" ] && [ "$queries" != "0" ]; then
+      local next_str
+      next_str=$(format_time "$next_scrape")
+      echo -e "  ${YELLOW}${BOLD}${queries}${RESET}${YELLOW} active queries tracking prices (next scrape at ${BOLD}${next_str}${RESET}${YELLOW}, every ${interval:-3}h)${RESET}"
+    fi
+  fi
+
+  read -rp "  Stop Fairtrail? [y/N] " confirm
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo -e "  ${DIM}Cancelled${RESET}"
+    return
+  fi
+
+  echo -e "${CYAN}${BOLD}▸${RESET} Stopping Fairtrail..."
+  dc stop 2>/dev/null
+  echo -e "${GREEN}${BOLD}✓${RESET} Stopped"
+  echo -e "  ${YELLOW}Price tracking is paused — no scrapes will run until you start again.${RESET}"
+  echo -e "  ${DIM}Your data and queries are saved. Run 'fairtrail' to resume.${RESET}"
+}
+
+cmd_logs() {
+  dc logs -f web
+}
+
+cmd_status() {
+  local health
+  health=$(fetch_health)
+  if [ -n "$health" ]; then
+    echo -e "${GREEN}${BOLD}✓${RESET} Fairtrail is running at ${BOLD}http://localhost:${PORT}${RESET}"
+    show_tracking_info
+  else
+    echo -e "${DIM}Fairtrail is not running. Start with: fairtrail${RESET}"
+  fi
+}
+
+cmd_update() {
+  echo -e "${CYAN}${BOLD}▸${RESET} Updating Fairtrail..."
+
+  # Update CLI (download to temp, atomic move)
+  if curl -fsSL "$BASE_URL/fairtrail-cli" -o "$HOME/.local/bin/fairtrail.tmp" 2>/dev/null; then
+    mv -f "$HOME/.local/bin/fairtrail.tmp" "$HOME/.local/bin/fairtrail"
+    chmod +x "$HOME/.local/bin/fairtrail"
+    echo -e "${GREEN}${BOLD}✓${RESET} CLI updated"
+  else
+    rm -f "$HOME/.local/bin/fairtrail.tmp"
+    echo -e "${YELLOW}${BOLD}!${RESET} CLI update skipped (couldn't reach $BASE_URL)"
+  fi
+
+  # Pull latest image and restart
+  dc pull web 2>&1 | while IFS= read -r line; do
+    echo -e "  ${DIM}${line}${RESET}"
+  done
+
+  dc up -d 2>&1 | while IFS= read -r line; do
+    echo -e "  ${DIM}${line}${RESET}"
+  done
+
+  echo -e "${GREEN}${BOLD}✓${RESET} Updated and restarted"
+}
+
+cmd_search() {
+  local input="$*"
+  if [ -z "$input" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Usage: fairtrail search \"NYC to Tokyo next month\""
+    exit 1
+  fi
+
+  local health
+  health=$(fetch_health)
+  if [ -z "$health" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Fairtrail is not running. Start with: fairtrail"
+    exit 1
+  fi
+
+  echo -e "${CYAN}${BOLD}▸${RESET} Parsing: ${BOLD}${input}${RESET}"
+
+  # Step 1: Parse natural language query
+  local parse_res
+  parse_res=$(curl -sf "http://localhost:${PORT}/api/parse" \
+    -H 'Content-Type: application/json' \
+    -d "{\"query\": $(printf '%s' "$input" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}" 2>/dev/null)
+
+  if [ -z "$parse_res" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Failed to reach Fairtrail API"
+    exit 1
+  fi
+
+  local ok
+  ok=$(echo "$parse_res" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('ok',''))" 2>/dev/null)
+  if [ "$ok" != "True" ]; then
+    local err
+    err=$(echo "$parse_res" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('error','Unknown error'))" 2>/dev/null)
+    echo -e "${RED}${BOLD}✗${RESET} ${err}"
+    exit 1
+  fi
+
+  # Extract parsed fields
+  local parsed_json
+  parsed_json=$(echo "$parse_res" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+p = d['data']['parsed']
+conf = d['data']['confidence']
+print(json.dumps({'parsed': p, 'confidence': conf}))
+" 2>/dev/null)
+
+  local confidence
+  confidence=$(echo "$parsed_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['confidence'])" 2>/dev/null)
+
+  if [ "$confidence" != "high" ]; then
+    echo -e "${YELLOW}${BOLD}!${RESET} Ambiguous query. Try being more specific (e.g. include airport codes and dates)."
+    exit 1
+  fi
+
+  # Show what was parsed
+  local origins destinations date_from date_to
+  origins=$(echo "$parsed_json" | python3 -c "import json,sys; p=json.load(sys.stdin)['parsed']; print(', '.join(a['code'] for a in p.get('origins',[])))" 2>/dev/null)
+  destinations=$(echo "$parsed_json" | python3 -c "import json,sys; p=json.load(sys.stdin)['parsed']; print(', '.join(a['code'] for a in p.get('destinations',[])))" 2>/dev/null)
+  date_from=$(echo "$parsed_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['parsed']['dateFrom'])" 2>/dev/null)
+  date_to=$(echo "$parsed_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['parsed']['dateTo'])" 2>/dev/null)
+
+  echo -e "  ${BOLD}${origins} → ${destinations}${RESET}  ${DIM}${date_from} to ${date_to}${RESET}"
+  echo -e "${CYAN}${BOLD}▸${RESET} Searching flights..."
+
+  # Step 2: Preview flights
+  local preview_body
+  preview_body=$(echo "$parsed_json" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['parsed']))" 2>/dev/null)
+
+  local preview_res
+  preview_res=$(curl -sf "http://localhost:${PORT}/api/preview" \
+    -H 'Content-Type: application/json' \
+    -d "$preview_body" 2>/dev/null)
+
+  if [ -z "$preview_res" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Flight search failed"
+    exit 1
+  fi
+
+  # Step 3: Create tracker with all flights
+  local create_body
+  create_body=$(python3 -c "
+import json, sys
+parsed = json.loads('''$preview_body''')
+preview = json.loads(sys.stdin.read())
+routes = preview.get('data', {}).get('routes', [])
+if not routes and preview.get('data', {}).get('flights'):
+    routes = [{'origin': parsed['origin'], 'originName': parsed['originName'],
+               'destination': parsed['destination'], 'destinationName': parsed['destinationName'],
+               'flights': preview['data']['flights']}]
+body = {
+    'rawInput': '''$input''',
+    'dateFrom': parsed['dateFrom'],
+    'dateTo': parsed['dateTo'],
+    'flexibility': parsed.get('flexibility', 0),
+    'maxPrice': parsed.get('maxPrice'),
+    'maxStops': parsed.get('maxStops'),
+    'preferredAirlines': parsed.get('preferredAirlines', []),
+    'timePreference': parsed.get('timePreference', 'any'),
+    'currency': parsed.get('currency', 'USD'),
+    'cabinClass': parsed.get('cabinClass', 'economy'),
+    'tripType': parsed.get('tripType', 'round_trip'),
+    'routes': [{'origin': r['origin'], 'originName': r.get('originName',''),
+                'destination': r['destination'], 'destinationName': r.get('destinationName',''),
+                'selectedFlights': r.get('flights',[])} for r in routes]
+}
+print(json.dumps(body))
+" <<< "$preview_res" 2>/dev/null)
+
+  local create_res
+  create_res=$(curl -sf "http://localhost:${PORT}/api/queries" \
+    -H 'Content-Type: application/json' \
+    -d "$create_body" 2>/dev/null)
+
+  if [ -z "$create_res" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Failed to create tracker"
+    exit 1
+  fi
+
+  local create_ok
+  create_ok=$(echo "$create_res" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ok',''))" 2>/dev/null)
+
+  if [ "$create_ok" != "True" ]; then
+    local err
+    err=$(echo "$create_res" | python3 -c "import json,sys; print(json.load(sys.stdin).get('error','Unknown error'))" 2>/dev/null)
+    echo -e "${RED}${BOLD}✗${RESET} ${err}"
+    exit 1
+  fi
+
+  # Show results
+  local query_id
+  query_id=$(echo "$create_res" | python3 -c "import json,sys; qs=json.load(sys.stdin)['data']['queries']; print(qs[0]['id'] if qs else '')" 2>/dev/null)
+  local num_queries
+  num_queries=$(echo "$create_res" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['data']['queries']))" 2>/dev/null)
+
+  echo ""
+  echo -e "${GREEN}${BOLD}✓${RESET} Tracking ${BOLD}${num_queries}${RESET} route(s) — prices checked every 3h"
+  echo -e "  ${BOLD}http://localhost:${PORT}/q/${query_id}${RESET}"
+
+  if command -v open &>/dev/null; then
+    open "http://localhost:${PORT}/q/${query_id}"
+  elif command -v xdg-open &>/dev/null; then
+    xdg-open "http://localhost:${PORT}/q/${query_id}" 2>/dev/null &
+  fi
+}
+
+cmd_uninstall() {
+  echo ""
+  echo -e "${YELLOW}${BOLD}!${RESET} This will stop Fairtrail and remove all data."
+  read -rp "  Are you sure? [y/N] " confirm
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo -e "  ${DIM}Cancelled${RESET}"
+    return
+  fi
+
+  echo -e "${CYAN}${BOLD}▸${RESET} Removing Fairtrail..."
+  dc down -v 2>/dev/null || true
+  rm -rf "$FAIRTRAIL_DIR"
+  rm -f "$HOME/.local/bin/fairtrail"
+  echo -e "${GREEN}${BOLD}✓${RESET} Uninstalled"
+}
+
+cmd_help() {
+  echo ""
+  echo -e "${BOLD}  Fairtrail${RESET}"
+  echo ""
+  echo "  Usage: fairtrail [command]"
+  echo ""
+  echo "  Commands:"
+  echo "    (none)       Start Fairtrail (Ctrl+C to stop)"
+  echo "    search \"..\"  Search and track a flight from the terminal"
+  echo "    start        Start in background"
+  echo "    stop         Stop — pauses all price tracking until you start again"
+  echo "    logs         View live logs"
+  echo "    status       Check if running"
+  echo "    update       Pull latest version and restart"
+  echo "    uninstall    Remove Fairtrail and all data"
+  echo "    help         Show this help"
+  echo ""
+}
+
+case "${1:-}" in
+  search)    shift; cmd_search "$@" ;;
+  start)     cmd_start_background ;;
+  stop)      cmd_stop ;;
+  logs)      cmd_logs ;;
+  status)    cmd_status ;;
+  update)    cmd_update ;;
+  uninstall) cmd_uninstall ;;
+  help|-h|--help) cmd_help ;;
+  "")        cmd_start_foreground ;;
+  *)         echo "Unknown command: $1"; cmd_help; exit 1 ;;
+esac
