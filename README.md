@@ -248,7 +248,7 @@ Pull requests welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Legal
 
-Fairtrail is a personal tool that scrapes publicly available flight pricing data. In the US, scraping publicly accessible websites does not violate the Computer Fraud and Abuse Act (*hiQ Labs v. LinkedIn*, 9th Cir. 2022). Fairtrail does not circumvent any login, paywall, or technical access control.
+Fairtrail is a personal tool that scrapes publicly available flight pricing data. In the US, scraping publicly accessible websites does not violate the [Computer Fraud and Abuse Act](https://en.wikipedia.org/wiki/Computer_Fraud_and_Abuse_Act) ([*hiQ Labs v. LinkedIn*, 9th Cir. 2022](https://en.wikipedia.org/wiki/HiQ_Labs_v._LinkedIn)). Fairtrail does not circumvent any login, paywall, or technical access control.
 
 That said, automated access to third-party websites may conflict with their terms of service. **Users are solely responsible for complying with the terms of service of any website they interact with through Fairtrail.** This project is not affiliated with, endorsed by, or associated with Google, any airline, or any travel booking platform.
 
