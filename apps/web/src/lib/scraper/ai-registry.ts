@@ -178,6 +178,30 @@ export const EXTRACTION_PROVIDERS: Record<string, ProviderConfig> = {
   },
 };
 
+export async function detectAvailableProviders(): Promise<string[]> {
+  const available: string[] = [];
+
+  for (const [key, config] of Object.entries(EXTRACTION_PROVIDERS)) {
+    if (key === 'claude-code') {
+      if (process.env.CLAUDE_CODE_ENABLED === 'true') {
+        try {
+          const { execSync } = await import('child_process');
+          execSync('which claude', { stdio: 'ignore' });
+          available.push(key);
+        } catch {
+          // CLI not found
+        }
+      }
+      continue;
+    }
+    if (process.env[config.envKey]) {
+      available.push(key);
+    }
+  }
+
+  return available;
+}
+
 export function getModelCosts(
   provider: string,
   model: string

@@ -3,6 +3,7 @@ import styles from './page.module.css';
 import { SearchBar } from '@/components/SearchBar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SavedTrackers } from '@/components/SavedTrackers';
+import { SetupRedirect } from '@/components/SetupRedirect';
 import { getSessionToken, verifySessionToken } from '@/lib/admin-auth';
 
 export default async function HomePage() {
@@ -27,6 +28,7 @@ export default async function HomePage() {
 
   return (
     <main className={styles.root}>
+      <SetupRedirect />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
