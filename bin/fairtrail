@@ -184,6 +184,153 @@ cmd_update() {
   echo -e "${GREEN}${BOLD}✓${RESET} Updated and restarted"
 }
 
+cmd_search() {
+  local input="$*"
+  if [ -z "$input" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Usage: fairtrail search \"NYC to Tokyo next month\""
+    exit 1
+  fi
+
+  # Check Fairtrail is running
+  local health
+  health=$(fetch_health)
+  if [ -z "$health" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Fairtrail is not running. Start with: fairtrail"
+    exit 1
+  fi
+
+  echo -e "${CYAN}${BOLD}▸${RESET} Parsing: ${BOLD}${input}${RESET}"
+
+  # Step 1: Parse natural language query
+  local parse_res
+  parse_res=$(curl -sf "http://localhost:${PORT}/api/parse" \
+    -H 'Content-Type: application/json' \
+    -d "{\"query\": $(printf '%s' "$input" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}" 2>/dev/null)
+
+  if [ -z "$parse_res" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Failed to reach Fairtrail API"
+    exit 1
+  fi
+
+  local ok
+  ok=$(echo "$parse_res" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('ok',''))" 2>/dev/null)
+  if [ "$ok" != "True" ]; then
+    local err
+    err=$(echo "$parse_res" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('error','Unknown error'))" 2>/dev/null)
+    echo -e "${RED}${BOLD}✗${RESET} ${err}"
+    exit 1
+  fi
+
+  # Extract parsed fields
+  local parsed_json
+  parsed_json=$(echo "$parse_res" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+p = d['data']['parsed']
+conf = d['data']['confidence']
+print(json.dumps({'parsed': p, 'confidence': conf}))
+" 2>/dev/null)
+
+  local confidence
+  confidence=$(echo "$parsed_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['confidence'])" 2>/dev/null)
+
+  if [ "$confidence" != "high" ]; then
+    echo -e "${YELLOW}${BOLD}!${RESET} Ambiguous query. Try being more specific (e.g. include airport codes and dates)."
+    exit 1
+  fi
+
+  # Show what was parsed
+  local origins destinations date_from date_to
+  origins=$(echo "$parsed_json" | python3 -c "import json,sys; p=json.load(sys.stdin)['parsed']; print(', '.join(a['code'] for a in p.get('origins',[])))" 2>/dev/null)
+  destinations=$(echo "$parsed_json" | python3 -c "import json,sys; p=json.load(sys.stdin)['parsed']; print(', '.join(a['code'] for a in p.get('destinations',[])))" 2>/dev/null)
+  date_from=$(echo "$parsed_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['parsed']['dateFrom'])" 2>/dev/null)
+  date_to=$(echo "$parsed_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['parsed']['dateTo'])" 2>/dev/null)
+
+  echo -e "  ${BOLD}${origins} → ${destinations}${RESET}  ${DIM}${date_from} to ${date_to}${RESET}"
+  echo -e "${CYAN}${BOLD}▸${RESET} Searching flights..."
+
+  # Step 2: Preview flights
+  local preview_body
+  preview_body=$(echo "$parsed_json" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['parsed']))" 2>/dev/null)
+
+  local preview_res
+  preview_res=$(curl -sf "http://localhost:${PORT}/api/preview" \
+    -H 'Content-Type: application/json' \
+    -d "$preview_body" 2>/dev/null)
+
+  if [ -z "$preview_res" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Flight search failed"
+    exit 1
+  fi
+
+  # Step 3: Create tracker with all flights
+  local create_body
+  create_body=$(python3 -c "
+import json, sys
+parsed = json.loads('''$preview_body''')
+preview = json.loads(sys.stdin.read())
+routes = preview.get('data', {}).get('routes', [])
+if not routes and preview.get('data', {}).get('flights'):
+    routes = [{'origin': parsed['origin'], 'originName': parsed['originName'],
+               'destination': parsed['destination'], 'destinationName': parsed['destinationName'],
+               'flights': preview['data']['flights']}]
+body = {
+    'rawInput': '''$input''',
+    'dateFrom': parsed['dateFrom'],
+    'dateTo': parsed['dateTo'],
+    'flexibility': parsed.get('flexibility', 0),
+    'maxPrice': parsed.get('maxPrice'),
+    'maxStops': parsed.get('maxStops'),
+    'preferredAirlines': parsed.get('preferredAirlines', []),
+    'timePreference': parsed.get('timePreference', 'any'),
+    'currency': parsed.get('currency', 'USD'),
+    'cabinClass': parsed.get('cabinClass', 'economy'),
+    'tripType': parsed.get('tripType', 'round_trip'),
+    'routes': [{'origin': r['origin'], 'originName': r.get('originName',''),
+                'destination': r['destination'], 'destinationName': r.get('destinationName',''),
+                'selectedFlights': r.get('flights',[])} for r in routes]
+}
+print(json.dumps(body))
+" <<< "$preview_res" 2>/dev/null)
+
+  local create_res
+  create_res=$(curl -sf "http://localhost:${PORT}/api/queries" \
+    -H 'Content-Type: application/json' \
+    -d "$create_body" 2>/dev/null)
+
+  if [ -z "$create_res" ]; then
+    echo -e "${RED}${BOLD}✗${RESET} Failed to create tracker"
+    exit 1
+  fi
+
+  local create_ok
+  create_ok=$(echo "$create_res" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ok',''))" 2>/dev/null)
+
+  if [ "$create_ok" != "True" ]; then
+    local err
+    err=$(echo "$create_res" | python3 -c "import json,sys; print(json.load(sys.stdin).get('error','Unknown error'))" 2>/dev/null)
+    echo -e "${RED}${BOLD}✗${RESET} ${err}"
+    exit 1
+  fi
+
+  # Show results
+  local query_id
+  query_id=$(echo "$create_res" | python3 -c "import json,sys; qs=json.load(sys.stdin)['data']['queries']; print(qs[0]['id'] if qs else '')" 2>/dev/null)
+  local num_queries
+  num_queries=$(echo "$create_res" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['data']['queries']))" 2>/dev/null)
+
+  echo ""
+  echo -e "${GREEN}${BOLD}✓${RESET} Tracking ${BOLD}${num_queries}${RESET} route(s) — prices checked every 3h"
+  echo -e "  ${BOLD}http://localhost:${PORT}/q/${query_id}${RESET}"
+
+  # Open in browser
+  if command -v open &>/dev/null; then
+    open "http://localhost:${PORT}/q/${query_id}"
+  elif command -v xdg-open &>/dev/null; then
+    xdg-open "http://localhost:${PORT}/q/${query_id}" 2>/dev/null &
+  fi
+}
+
 cmd_help() {
   echo ""
   echo -e "${BOLD}  Fairtrail${RESET}"
@@ -191,13 +338,14 @@ cmd_help() {
   echo "  Usage: fairtrail [command]"
   echo ""
   echo "  Commands:"
-  echo "    (none)     Start Fairtrail (Ctrl+C to stop)"
-  echo "    start      Start in background"
-  echo "    stop       Stop — pauses all price tracking until you start again"
-  echo "    logs       View live logs"
-  echo "    status     Check if running"
-  echo "    update     Pull latest version and restart"
-  echo "    help       Show this help"
+  echo "    (none)       Start Fairtrail (Ctrl+C to stop)"
+  echo "    search \"..\"  Search and track a flight from the terminal"
+  echo "    start        Start in background"
+  echo "    stop         Stop — pauses all price tracking until you start again"
+  echo "    logs         View live logs"
+  echo "    status       Check if running"
+  echo "    update       Pull latest version and restart"
+  echo "    help         Show this help"
   echo ""
 }
 
@@ -206,6 +354,7 @@ OVERRIDE_FILE=""
 [ -f "$FAIRTRAIL_DIR/docker-compose.override.yml" ] && OVERRIDE_FILE="$FAIRTRAIL_DIR/docker-compose.override.yml"
 
 case "${1:-}" in
+  search)  shift; cmd_search "$@" ;;
   start)   cmd_start_background ;;
   stop)    cmd_stop ;;
   logs)    cmd_logs ;;
