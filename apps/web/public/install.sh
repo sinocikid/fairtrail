@@ -31,10 +31,75 @@ echo -e "  ${DIM}The price trail airlines don't show you${RESET}"
 echo ""
 
 # ---------------------------------------------------------------------------
-# 1. Check prerequisites
+# 1. Detect OS and check prerequisites
 # ---------------------------------------------------------------------------
-command -v docker &>/dev/null || fail "Docker is required. Install from https://docs.docker.com/get-docker/"
-docker info &>/dev/null 2>&1  || fail "Docker is not running. Start Docker Desktop and try again."
+OS="unknown"
+case "$(uname -s)" in
+  Darwin*)  OS="macos" ;;
+  Linux*)
+    if grep -qi microsoft /proc/version 2>/dev/null; then
+      OS="wsl"
+    else
+      OS="linux"
+    fi
+    ;;
+esac
+
+install_docker_linux() {
+  info "Installing Docker Engine..."
+  if ! command -v sudo &>/dev/null; then
+    fail "sudo is required to install Docker. Install sudo first, then re-run."
+  fi
+  echo -e "  ${DIM}This requires sudo — you may be prompted for your password.${RESET}"
+  curl -fsSL https://get.docker.com | sudo sh
+  sudo usermod -aG docker "$USER"
+  warn "You were added to the docker group. Log out and back in, then re-run this installer."
+  exit 0
+}
+
+if ! command -v docker &>/dev/null; then
+  case "$OS" in
+    macos)
+      fail "Docker Desktop is required.\n\n  Install it from: ${BOLD}https://docs.docker.com/desktop/setup/install/mac-install/${RESET}\n\n  Then re-run: ${BOLD}curl -fsSL https://fairtrail.org/install.sh | sh${RESET}"
+      ;;
+    linux|wsl)
+      warn "Docker is not installed."
+      echo ""
+      read -rp "  Install Docker Engine now? (requires sudo) [Y/n] " confirm
+      if [[ ! "$confirm" =~ ^[Nn]$ ]]; then
+        install_docker_linux
+      else
+        fail "Docker is required. Install from https://docs.docker.com/engine/install/"
+      fi
+      ;;
+    *)
+      fail "Docker is required. Install from https://docs.docker.com/get-docker/"
+      ;;
+  esac
+fi
+
+if ! docker info &>/dev/null 2>&1; then
+  case "$OS" in
+    macos)
+      fail "Docker Desktop is not running.\n\n  Open Docker Desktop from Applications, wait for it to start, then re-run:\n  ${BOLD}curl -fsSL https://fairtrail.org/install.sh | sh${RESET}"
+      ;;
+    linux|wsl)
+      warn "Docker daemon is not running."
+      echo -e "  ${DIM}Trying to start it...${RESET}"
+      if command -v sudo &>/dev/null; then
+        sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
+        sleep 2
+      fi
+      if ! docker info &>/dev/null 2>&1; then
+        fail "Could not start Docker.\n\n  Start it manually: ${BOLD}sudo systemctl start docker${RESET}\n  Then re-run this installer."
+      fi
+      ok "Docker daemon started"
+      ;;
+    *)
+      fail "Docker is not running. Start Docker and try again."
+      ;;
+  esac
+fi
 
 ok "Docker is running"
 
@@ -318,3 +383,10 @@ echo ""
 echo -e "  Next time, just run: ${BOLD}fairtrail${RESET}"
 echo -e "  ${DIM}Ctrl+C to stop  |  fairtrail stop  |  fairtrail help${RESET}"
 echo ""
+
+# Open browser automatically
+if command -v open &>/dev/null; then
+  open "http://localhost:${PORT}"
+elif command -v xdg-open &>/dev/null; then
+  xdg-open "http://localhost:${PORT}" 2>/dev/null &
+fi

@@ -102,6 +102,12 @@ cmd_start_foreground() {
 
   if [ "$RETRIES" -gt 0 ]; then
     echo -e "${GREEN}${BOLD}✓${RESET} Running at ${BOLD}http://localhost:${PORT}${RESET}"
+    # Open browser
+    if command -v open &>/dev/null; then
+      open "http://localhost:${PORT}"
+    elif command -v xdg-open &>/dev/null; then
+      xdg-open "http://localhost:${PORT}" 2>/dev/null &
+    fi
   fi
 
   echo -e "  ${DIM}Press Ctrl+C to stop${RESET}"
@@ -123,6 +129,13 @@ cmd_start_background() {
 
   echo -e "${GREEN}${BOLD}✓${RESET} Fairtrail running at ${BOLD}http://localhost:${PORT}${RESET}"
   echo -e "  ${DIM}Stop with: fairtrail stop${RESET}"
+
+  # Open browser
+  if command -v open &>/dev/null; then
+    open "http://localhost:${PORT}"
+  elif command -v xdg-open &>/dev/null; then
+    xdg-open "http://localhost:${PORT}" 2>/dev/null &
+  fi
 }
 
 cmd_stop() {
