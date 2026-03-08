@@ -22,14 +22,18 @@ curl -fsSL https://fairtrail.org/install.sh | sh
 
 If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex](https://github.com/openai/codex) installed, the setup script detects it automatically — **no API key needed**. Otherwise, it asks you to paste one.
 
-Or manually:
+Once it finishes:
+
+1. Open [localhost:3003/setup](http://localhost:3003/setup) — set your admin password and confirm the LLM provider
+2. Search for a flight in plain English: *"NYC to Tokyo in July under $800"*
+3. Fairtrail starts tracking prices immediately — come back anytime to see the trend
+
+Or install manually:
 
 ```bash
 git clone https://github.com/affromero/fairtrail.git && cd fairtrail
 ./setup.sh
 ```
-
-Open [localhost:3003](http://localhost:3003) — the setup wizard will guide you through first-run configuration.
 
 ## Why Fairtrail?
 
