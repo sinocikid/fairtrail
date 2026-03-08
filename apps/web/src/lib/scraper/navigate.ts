@@ -1,5 +1,36 @@
+import type { Page } from 'playwright';
 import { launchBrowser, createStealthContext } from './browser';
 import { getAirlineUrl } from './airline-urls';
+
+/** Random delay between min and max milliseconds */
+function randomDelay(min: number, max: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
+}
+
+/** Simulate human-like page interaction: mouse moves, scrolls, pauses */
+async function simulateHumanBehavior(page: Page): Promise<void> {
+  const viewport = page.viewportSize() ?? { width: 1440, height: 900 };
+
+  // Move mouse to a random spot (humans don't leave cursor at 0,0)
+  await page.mouse.move(
+    100 + Math.random() * (viewport.width - 200),
+    100 + Math.random() * (viewport.height - 200),
+    { steps: 5 + Math.floor(Math.random() * 10) }
+  );
+  await randomDelay(200, 600);
+
+  // Scroll down slightly like a human scanning results
+  await page.mouse.wheel(0, 100 + Math.random() * 300);
+  await randomDelay(300, 800);
+
+  // Move mouse again
+  await page.mouse.move(
+    100 + Math.random() * (viewport.width - 200),
+    200 + Math.random() * (viewport.height - 400),
+    { steps: 3 + Math.floor(Math.random() * 8) }
+  );
+  await randomDelay(100, 400);
+}
 
 export interface FlightSearchParams {
   origin: string;
@@ -42,8 +73,11 @@ export async function navigateGoogleFlights(
       console.log(`[navigate] attempt ${attempt}/${maxAttempts} → ${url}`);
       await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
 
-      // Wait for flight results to load — longer on retries
-      await page.waitForTimeout(attempt === 1 ? 3000 : 6000);
+      // Wait for page to settle — randomized to look human
+      await randomDelay(attempt === 1 ? 2000 : 4000, attempt === 1 ? 4000 : 7000);
+
+      // Simulate human browsing behavior
+      await simulateHumanBehavior(page);
 
       // Dismiss consent/cookie dialog — Google renders two identical "Accept all"
       // buttons; without .first() Playwright strict mode throws on the ambiguity
@@ -51,7 +85,7 @@ export async function navigateGoogleFlights(
         const consentButton = page.locator('button:has-text("Accept all")').first();
         if (await consentButton.isVisible({ timeout: 2000 })) {
           await consentButton.click();
-          await page.waitForTimeout(3000);
+          await randomDelay(2000, 4000);
         }
       } catch {
         // No consent dialog — continue
@@ -64,6 +98,11 @@ export async function navigateGoogleFlights(
         resultsFound = true;
       } catch {
         // Selector not found — page may be blocked, CAPTCHA'd, or empty
+      }
+
+      // Scroll through results like a human scanning prices
+      if (resultsFound) {
+        await simulateHumanBehavior(page);
       }
 
       // Capture visible text instead of raw HTML — Google Flights pages are 2-3MB
@@ -117,14 +156,15 @@ export async function navigateFlightDetail(
     // Must use one-way search so clicking goes directly to booking options
     const url = buildGoogleFlightsUrl({ ...params, tripType: 'one_way' });
     await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
-    await page.waitForTimeout(3000);
+    await randomDelay(2000, 4000);
+    await simulateHumanBehavior(page);
 
     // Dismiss consent
     try {
       const consentButton = page.locator('button:has-text("Accept all")').first();
       if (await consentButton.isVisible({ timeout: 2000 })) {
         await consentButton.click();
-        await page.waitForTimeout(3000);
+        await randomDelay(2000, 4000);
       }
     } catch {
       // No consent dialog
@@ -206,7 +246,8 @@ export async function navigateAirlineDirect(
     await page.goto(url, { waitUntil: 'networkidle', timeout: 45_000 });
 
     // Airline sites are slower — wait for dynamic content to render
-    await page.waitForTimeout(5000);
+    await randomDelay(4000, 7000);
+    await simulateHumanBehavior(page);
 
     // Dismiss cookie/consent dialogs common on airline sites
     try {
@@ -214,7 +255,7 @@ export async function navigateAirlineDirect(
         const btn = page.locator(`button:has-text("${label}")`).first();
         if (await btn.isVisible({ timeout: 1000 })) {
           await btn.click();
-          await page.waitForTimeout(2000);
+          await randomDelay(1500, 3000);
           break;
         }
       }
