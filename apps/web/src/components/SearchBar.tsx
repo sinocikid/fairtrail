@@ -2,25 +2,17 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ParseAmbiguity, ParsedFlightQuery } from '@/lib/scraper/parse-query';
-import type { PriceData } from '@/lib/scraper/extract-prices';
 import { addSavedTracker } from '@/lib/tracker-storage';
 import styles from './SearchBar.module.css';
 import { ConfirmationCard, type ParsedQuery } from './ConfirmationCard';
 import { ClarificationCard } from './ClarificationCard';
-import { FlightPicker } from './FlightPicker';
-import { LinkBanner } from './LinkBanner';
+import { FlightPicker, type RouteFlights } from './FlightPicker';
+import { LinkBanner, type CreatedTracker } from './LinkBanner';
+import type { PriceData } from '@/lib/scraper/extract-prices';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
   content: string;
-}
-
-interface CreatedQuery {
-  id: string;
-  origin: string;
-  originName: string;
-  destination: string;
-  destinationName: string;
 }
 
 export function SearchBar() {
@@ -79,12 +71,12 @@ export function SearchBar() {
   const [ambiguities, setAmbiguities] = useState<ParseAmbiguity[]>([]);
   const [partialParsed, setPartialParsed] = useState<ParsedFlightQuery | null>(null);
 
-  // Preview state
-  const [previewFlights, setPreviewFlights] = useState<PriceData[] | null>(null);
+  // Preview state — routes instead of flat flights
+  const [previewRoutes, setPreviewRoutes] = useState<RouteFlights[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  // Link banner state
-  const [createdQuery, setCreatedQuery] = useState<CreatedQuery | null>(null);
+  // Link banner state — multiple trackers
+  const [createdTrackers, setCreatedTrackers] = useState<CreatedTracker[] | null>(null);
 
   const doParse = useCallback(async (input: string, history: ConversationMessage[]) => {
     setLoading(true);
@@ -137,7 +129,7 @@ export function SearchBar() {
     setAmbiguities([]);
     setPartialParsed(null);
     setParsed(null);
-    setPreviewFlights(null);
+    setPreviewRoutes(null);
 
     await doParse(trimmed, []);
   }, [query, doParse]);
@@ -174,7 +166,19 @@ export function SearchBar() {
         return;
       }
 
-      setPreviewFlights(data.data.flights);
+      // Handle both new (routes array) and legacy (flat flights) responses
+      if (data.data.routes) {
+        setPreviewRoutes(data.data.routes);
+      } else if (data.data.flights) {
+        // Legacy single-route: wrap in a route object
+        setPreviewRoutes([{
+          origin: parsed.origin,
+          originName: parsed.originName,
+          destination: parsed.destination,
+          destinationName: parsed.destinationName,
+          flights: data.data.flights,
+        }]);
+      }
     } catch {
       setError('Network error — please try again');
     } finally {
@@ -182,7 +186,7 @@ export function SearchBar() {
     }
   };
 
-  const handleTrackSelected = async (selectedFlights: PriceData[]) => {
+  const handleTrackSelected = async (routeSelections: Array<{ route: RouteFlights; flights: PriceData[] }>) => {
     if (!parsed) return;
 
     setLoading(true);
@@ -193,9 +197,23 @@ export function SearchBar() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...parsed,
           rawInput: query.trim(),
-          selectedFlights,
+          dateFrom: parsed.dateFrom,
+          dateTo: parsed.dateTo,
+          flexibility: parsed.flexibility,
+          maxPrice: parsed.maxPrice,
+          maxStops: parsed.maxStops,
+          preferredAirlines: parsed.preferredAirlines,
+          timePreference: parsed.timePreference,
+          cabinClass: parsed.cabinClass,
+          tripType: parsed.tripType,
+          routes: routeSelections.map((rs) => ({
+            origin: rs.route.origin,
+            originName: rs.route.originName,
+            destination: rs.route.destination,
+            destinationName: rs.route.destinationName,
+            selectedFlights: rs.flights,
+          })),
         }),
       });
 
@@ -206,25 +224,30 @@ export function SearchBar() {
         return;
       }
 
-      addSavedTracker({
-        id: data.data.id,
-        origin: parsed.origin,
-        destination: parsed.destination,
-        originName: parsed.originName,
-        destinationName: parsed.destinationName,
-        dateFrom: parsed.dateFrom,
-        dateTo: parsed.dateTo,
-        createdAt: new Date().toISOString(),
-        deleteToken: data.data.deleteToken,
-      });
+      // data.data.queries is an array of { id, origin, originName, destination, destinationName, deleteToken }
+      const queries: Array<{ id: string; origin: string; originName: string; destination: string; destinationName: string; deleteToken: string }> = data.data.queries;
 
-      setCreatedQuery({
-        id: data.data.id,
-        origin: parsed.origin,
-        originName: parsed.originName,
-        destination: parsed.destination,
-        destinationName: parsed.destinationName,
-      });
+      for (const q of queries) {
+        addSavedTracker({
+          id: q.id,
+          origin: q.origin,
+          destination: q.destination,
+          originName: q.originName,
+          destinationName: q.destinationName,
+          dateFrom: parsed.dateFrom,
+          dateTo: parsed.dateTo,
+          createdAt: new Date().toISOString(),
+          deleteToken: q.deleteToken,
+        });
+      }
+
+      setCreatedTrackers(queries.map((q) => ({
+        id: q.id,
+        origin: q.origin,
+        originName: q.originName,
+        destination: q.destination,
+        destinationName: q.destinationName,
+      })));
     } catch {
       setError('Network error — please try again');
     } finally {
@@ -233,7 +256,7 @@ export function SearchBar() {
   };
 
   const handleBackFromPicker = () => {
-    setPreviewFlights(null);
+    setPreviewRoutes(null);
   };
 
   const handleReset = () => {
@@ -242,16 +265,16 @@ export function SearchBar() {
     setConversation([]);
     setAmbiguities([]);
     setPartialParsed(null);
-    setPreviewFlights(null);
+    setPreviewRoutes(null);
     setPreviewLoading(false);
-    setCreatedQuery(null);
+    setCreatedTrackers(null);
     inputRef.current?.focus();
   };
 
   const showClarification = ambiguities.length > 0 && !parsed;
-  const showConfirmation = parsed && !previewFlights && !createdQuery && !previewLoading;
-  const showPreviewLoading = parsed && previewLoading && !previewFlights;
-  const showPicker = parsed && previewFlights && !createdQuery;
+  const showConfirmation = parsed && !previewRoutes && !createdTrackers && !previewLoading;
+  const showPreviewLoading = parsed && previewLoading && !previewRoutes;
+  const showPicker = parsed && previewRoutes && !createdTrackers;
 
   if (inviteValid === null) {
     return <div className={styles.root} />;
@@ -360,15 +383,15 @@ export function SearchBar() {
       {showPreviewLoading && parsed && (
         <div className={styles.previewLoading}>
           <span className={styles.previewRoute}>
-            {parsed.origin} → {parsed.destination}
+            {parsed.origins.map((a) => a.code).join(', ')} → {parsed.destinations.map((a) => a.code).join(', ')}
           </span>
           <span className={styles.previewStatus}>Searching Google Flights&hellip;</span>
         </div>
       )}
 
-      {showPicker && (
+      {showPicker && previewRoutes && (
         <FlightPicker
-          flights={previewFlights}
+          routes={previewRoutes}
           onTrack={handleTrackSelected}
           onBack={handleBackFromPicker}
           onEdit={handleReset}
@@ -376,13 +399,9 @@ export function SearchBar() {
         />
       )}
 
-      {createdQuery && (
+      {createdTrackers && (
         <LinkBanner
-          queryId={createdQuery.id}
-          origin={createdQuery.origin}
-          originName={createdQuery.originName}
-          destination={createdQuery.destination}
-          destinationName={createdQuery.destinationName}
+          trackers={createdTrackers}
           onDismiss={handleReset}
         />
       )}

@@ -4,7 +4,16 @@ import { useState } from 'react';
 import type { PriceData } from '@/lib/scraper/extract-prices';
 import styles from './FlightPicker.module.css';
 
-const MAX_SELECTIONS = 10;
+const MAX_SELECTIONS_PER_ROUTE = 10;
+
+export interface RouteFlights {
+  origin: string;
+  originName: string;
+  destination: string;
+  destinationName: string;
+  flights: PriceData[];
+  error?: string;
+}
 
 function formatStops(stops: number): string {
   if (stops === 0) return 'Nonstop';
@@ -12,103 +21,154 @@ function formatStops(stops: number): string {
   return `${stops} stops`;
 }
 
+function rKey(route: RouteFlights): string {
+  return `${route.origin}-${route.destination}`;
+}
+
 export function FlightPicker({
-  flights,
+  routes,
   onTrack,
   onBack,
   onEdit,
   loading,
 }: {
-  flights: PriceData[];
-  onTrack: (selected: PriceData[]) => void;
+  routes: RouteFlights[];
+  onTrack: (routeSelections: Array<{ route: RouteFlights; flights: PriceData[] }>) => void;
   onBack: () => void;
   onEdit: () => void;
   loading: boolean;
 }) {
-  const [selected, setSelected] = useState<Set<number>>(
-    () => new Set(flights.slice(0, MAX_SELECTIONS).map((_, i) => i))
-  );
-
-  const toggle = (index: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else if (next.size < MAX_SELECTIONS) {
-        next.add(index);
+  const [selections, setSelections] = useState<Record<string, Set<number>>>(() => {
+    const initial: Record<string, Set<number>> = {};
+    for (const route of routes) {
+      if (route.flights.length > 0) {
+        initial[rKey(route)] = new Set(
+          route.flights.slice(0, MAX_SELECTIONS_PER_ROUTE).map((_, i) => i)
+        );
       }
-      return next;
+    }
+    return initial;
+  });
+
+  const toggle = (key: string, index: number) => {
+    setSelections((prev) => {
+      const current = new Set(prev[key] ?? []);
+      if (current.has(index)) {
+        current.delete(index);
+      } else if (current.size < MAX_SELECTIONS_PER_ROUTE) {
+        current.add(index);
+      }
+      return { ...prev, [key]: current };
     });
   };
 
-  const selectAll = () => {
-    const indices = flights.slice(0, MAX_SELECTIONS).map((_, i) => i);
-    setSelected(new Set(indices));
+  const selectAll = (key: string, flights: PriceData[]) => {
+    const indices = flights.slice(0, MAX_SELECTIONS_PER_ROUTE).map((_, i) => i);
+    setSelections((prev) => ({ ...prev, [key]: new Set(indices) }));
   };
 
-  const clearAll = () => setSelected(new Set());
+  const clearAll = (key: string) => {
+    setSelections((prev) => ({ ...prev, [key]: new Set() }));
+  };
+
+  const totalSelected = Object.values(selections).reduce((sum, s) => sum + s.size, 0);
 
   const handleTrack = () => {
-    const selectedFlights = flights.filter((_, i) => selected.has(i));
-    onTrack(selectedFlights);
+    const result: Array<{ route: RouteFlights; flights: PriceData[] }> = [];
+    for (const route of routes) {
+      const selected = selections[rKey(route)];
+      if (selected && selected.size > 0) {
+        result.push({
+          route,
+          flights: route.flights.filter((_, i) => selected.has(i)),
+        });
+      }
+    }
+    onTrack(result);
   };
+
+  const routesWithFlights = routes.filter((r) => r.flights.length > 0);
+  const isSingleRoute = routesWithFlights.length === 1;
 
   return (
     <div className={styles.root}>
-      <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <h3 className={styles.title}>Available flights</h3>
-          <span className={styles.counter}>
-            {selected.size} of {Math.min(flights.length, MAX_SELECTIONS)} selected
-          </span>
-        </div>
-        <div className={styles.headerActions}>
-          <button className={styles.selectAction} onClick={selectAll} disabled={loading}>
-            Select all
-          </button>
-          <button className={styles.selectAction} onClick={clearAll} disabled={loading || selected.size === 0}>
-            Clear
-          </button>
-        </div>
-      </div>
-      <p className={styles.hint}>Select up to {MAX_SELECTIONS} flights to track daily price changes</p>
+      {routesWithFlights.map((route) => {
+        const key = rKey(route);
+        const selected = selections[key] ?? new Set<number>();
 
-      {flights.length === 0 ? (
-        <div className={styles.empty}>
-          No flights found for this route and dates. Try adjusting your search.
-        </div>
-      ) : (
-        <div className={styles.list}>
-          {flights.map((flight, i) => {
-            const isSelected = selected.has(i);
-            const isDisabled = !isSelected && selected.size >= MAX_SELECTIONS;
+        return (
+          <div key={key} className={styles.routeSection}>
+            <div className={styles.header}>
+              <div className={styles.headerLeft}>
+                {!isSingleRoute && (
+                  <span className={styles.routeLabel}>
+                    {route.origin} → {route.destination}
+                  </span>
+                )}
+                <h3 className={styles.title}>
+                  {isSingleRoute ? 'Available flights' : route.destinationName}
+                </h3>
+                <span className={styles.counter}>
+                  {selected.size} of {Math.min(route.flights.length, MAX_SELECTIONS_PER_ROUTE)} selected
+                </span>
+              </div>
+              <div className={styles.headerActions}>
+                <button className={styles.selectAction} onClick={() => selectAll(key, route.flights)} disabled={loading}>
+                  Select all
+                </button>
+                <button className={styles.selectAction} onClick={() => clearAll(key)} disabled={loading || selected.size === 0}>
+                  Clear
+                </button>
+              </div>
+            </div>
 
-            return (
-              <button
-                key={i}
-                className={`${styles.row} ${isSelected ? styles.rowSelected : ''} ${isDisabled ? styles.rowDisabled : ''}`}
-                onClick={() => toggle(i)}
-                disabled={loading || isDisabled}
-                type="button"
-              >
-                <div className={styles.checkbox}>
-                  {isSelected && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                      <path d="M5 12l5 5L20 7" />
-                    </svg>
-                  )}
-                </div>
-                <div className={styles.airline}>{flight.airline}</div>
-                <div className={styles.price}>${flight.price}</div>
-                <div className={styles.meta}>
-                  <span className={styles.stops}>{formatStops(flight.stops)}</span>
-                  {flight.duration && (
-                    <span className={styles.duration}>{flight.duration}</span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+            {isSingleRoute && (
+              <p className={styles.hint}>Select up to {MAX_SELECTIONS_PER_ROUTE} flights to track daily price changes</p>
+            )}
+
+            <div className={styles.list}>
+              {route.flights.map((flight, i) => {
+                const isSelected = selected.has(i);
+                const isDisabled = !isSelected && selected.size >= MAX_SELECTIONS_PER_ROUTE;
+
+                return (
+                  <button
+                    key={i}
+                    className={`${styles.row} ${isSelected ? styles.rowSelected : ''} ${isDisabled ? styles.rowDisabled : ''}`}
+                    onClick={() => toggle(key, i)}
+                    disabled={loading || isDisabled}
+                    type="button"
+                  >
+                    <div className={styles.checkbox}>
+                      {isSelected && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path d="M5 12l5 5L20 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className={styles.airline}>{flight.airline}</div>
+                    <div className={styles.price}>${flight.price}</div>
+                    <div className={styles.meta}>
+                      <span className={styles.stops}>{formatStops(flight.stops)}</span>
+                      {flight.duration && (
+                        <span className={styles.duration}>{flight.duration}</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {routes.some((r) => r.error) && (
+        <div className={styles.routeErrors}>
+          {routes.filter((r) => r.error).map((r) => (
+            <p key={rKey(r)} className={styles.routeError}>
+              {r.origin} → {r.destination}: {r.error}
+            </p>
+          ))}
         </div>
       )}
 
@@ -116,22 +176,14 @@ export function FlightPicker({
         <button
           className={styles.trackButton}
           onClick={handleTrack}
-          disabled={loading || selected.size === 0}
+          disabled={loading || totalSelected === 0}
         >
-          {loading ? 'Creating tracker...' : `Track ${selected.size} flight${selected.size !== 1 ? 's' : ''}`}
+          {loading ? 'Creating trackers...' : `Track ${totalSelected} flight${totalSelected !== 1 ? 's' : ''}`}
         </button>
-        <button
-          className={styles.backButton}
-          onClick={onBack}
-          disabled={loading}
-        >
+        <button className={styles.backButton} onClick={onBack} disabled={loading}>
           Back
         </button>
-        <button
-          className={styles.backButton}
-          onClick={onEdit}
-          disabled={loading}
-        >
+        <button className={styles.backButton} onClick={onEdit} disabled={loading}>
           Edit search
         </button>
       </div>

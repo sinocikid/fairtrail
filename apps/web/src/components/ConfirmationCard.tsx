@@ -1,5 +1,6 @@
 'use client';
 
+import type { Airport } from '@/lib/scraper/parse-query';
 import styles from './ConfirmationCard.module.css';
 
 export interface ParsedQuery {
@@ -7,6 +8,8 @@ export interface ParsedQuery {
   originName: string;
   destination: string;
   destinationName: string;
+  origins: Airport[];
+  destinations: Airport[];
   dateFrom: string;
   dateTo: string;
   flexibility: number;
@@ -64,9 +67,13 @@ export function ConfirmationCard({
   return (
     <div className={styles.root}>
       <div className={styles.route}>
-        <div className={styles.airport}>
-          <span className={styles.code}>{parsed.origin}</span>
-          <span className={styles.city}>{parsed.originName}</span>
+        <div className={styles.airportGroup}>
+          {parsed.origins.map((a) => (
+            <div key={a.code} className={styles.airport}>
+              <span className={styles.code}>{a.code}</span>
+              <span className={styles.city}>{a.name}</span>
+            </div>
+          ))}
         </div>
         <div className={styles.arrow}>
           {parsed.tripType === 'one_way' ? (
@@ -80,9 +87,13 @@ export function ConfirmationCard({
             </svg>
           )}
         </div>
-        <div className={styles.airport}>
-          <span className={styles.code}>{parsed.destination}</span>
-          <span className={styles.city}>{parsed.destinationName}</span>
+        <div className={styles.airportGroup}>
+          {parsed.destinations.map((a) => (
+            <div key={a.code} className={styles.airport}>
+              <span className={styles.code}>{a.code}</span>
+              <span className={styles.city}>{a.name}</span>
+            </div>
+          ))}
         </div>
       </div>
       <div className={styles.filters}>

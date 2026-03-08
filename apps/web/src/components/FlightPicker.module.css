@@ -18,6 +18,33 @@
   }
 }
 
+.routeSection {
+  margin-bottom: 1.25rem;
+}
+
+.routeSection:last-of-type {
+  margin-bottom: 1.25rem;
+}
+
+.routeLabel {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+.routeErrors {
+  margin-bottom: 1.25rem;
+}
+
+.routeError {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.25rem 0;
+}
+
 .header {
   display: flex;
   align-items: center;
