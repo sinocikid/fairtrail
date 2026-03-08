@@ -9,6 +9,7 @@ import { getModelCosts } from '@/lib/scraper/ai-registry';
 import { isKnownAirline } from '@/lib/scraper/airline-urls';
 import { createHash } from 'crypto';
 import { hasValidInvite } from '@/lib/invite-auth';
+import type { Airport } from '@/lib/scraper/parse-query';
 
 const RETRYABLE_FAILURES: ExtractionFailureReason[] = ['empty_extraction', 'page_not_loaded', 'no_json_in_response'];
 const MAX_ATTEMPTS = 2;
@@ -16,17 +17,155 @@ const DEBUG_DIR = '/tmp/fairtrail-debug';
 
 const PREVIEW_MAX_RESULTS = 20;
 
-function buildCacheKey(params: {
+export interface RouteResult {
   origin: string;
+  originName: string;
   destination: string;
-  dateFrom: string;
-  dateTo: string;
-}): string {
+  destinationName: string;
+  flights: PriceData[];
+  error?: string;
+}
+
+function buildCacheKey(origin: string, destination: string, dateFrom: string, dateTo: string): string {
   const hash = createHash('sha256')
-    .update(`${params.origin}:${params.destination}:${params.dateFrom}:${params.dateTo}`)
+    .update(`${origin}:${destination}:${dateFrom}:${dateTo}`)
     .digest('hex')
     .slice(0, 16);
   return `preview:${hash}`;
+}
+
+interface ScrapeRouteParams {
+  origin: string;
+  destination: string;
+  dateFrom: Date;
+  dateTo: Date;
+  dateFromStr: string;
+  cabinClass: string;
+  tripType: string;
+  maxPrice: number | null;
+  maxStops: number | null;
+  preferredAirlines: string[];
+  timePreference: string;
+}
+
+async function scrapeRoute(params: ScrapeRouteParams): Promise<PriceData[]> {
+  const { origin, destination, dateFrom, dateTo, dateFromStr, cabinClass, tripType } = params;
+
+  const searchParams = { origin, destination, dateFrom, dateTo, cabinClass, tripType };
+  const airlines: string[] = params.preferredAirlines;
+  const directAirline = airlines.length === 1 && isKnownAirline(airlines[0]!) ? airlines[0]! : null;
+  const filters = {
+    maxPrice: params.maxPrice,
+    maxStops: params.maxStops,
+    preferredAirlines: airlines,
+    timePreference: params.timePreference,
+    cabinClass,
+  };
+
+  const config = await prisma.extractionConfig.findFirst({ where: { id: 'singleton' } });
+  const provider = config?.provider ?? 'anthropic';
+  const model = config?.model ?? 'claude-haiku-4-5-20251001';
+  const costs = getModelCosts(provider, model);
+
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let lastFailureReason: ExtractionFailureReason | undefined;
+  let lastSource: string = 'google_flights';
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    console.log(`[preview] ${origin}→${destination} attempt ${attempt}/${MAX_ATTEMPTS}`);
+
+    let nav;
+    try {
+      nav = directAirline
+        ? await navigateAirlineDirect(searchParams, directAirline)
+        : await navigateGoogleFlights(searchParams);
+    } catch {
+      nav = await navigateGoogleFlights(searchParams);
+    }
+
+    lastSource = nav.source;
+
+    const { prices: extracted, usage, failureReason } = await extractPrices(
+      nav.html,
+      nav.url,
+      dateFromStr,
+      filters,
+      PREVIEW_MAX_RESULTS,
+      nav.resultsFound,
+      nav.source
+    );
+
+    totalInputTokens += usage.inputTokens;
+    totalOutputTokens += usage.outputTokens;
+
+    if (!failureReason) {
+      const cost =
+        (totalInputTokens / 1000) * costs.costPer1kInput +
+        (totalOutputTokens / 1000) * costs.costPer1kOutput;
+
+      await prisma.apiUsageLog.create({
+        data: {
+          provider,
+          model,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          costUsd: cost,
+          operation: 'preview-flights',
+          durationMs: 0,
+        },
+      });
+
+      console.log(`[preview] ${origin}→${destination} OK — ${extracted.length} flights (attempt ${attempt})`);
+      return extracted;
+    }
+
+    lastFailureReason = failureReason;
+
+    try {
+      await mkdir(DEBUG_DIR, { recursive: true });
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const path = `${DEBUG_DIR}/preview-${origin}-${destination}-attempt${attempt}-${ts}.html`;
+      await writeFile(path, nav.html, 'utf-8');
+      console.log(`[preview] saved debug HTML → ${path} (${nav.html.length} chars)`);
+    } catch {
+      // ignore write errors
+    }
+
+    if (attempt < MAX_ATTEMPTS && RETRYABLE_FAILURES.includes(failureReason)) {
+      const delay = 5000 + Math.random() * 5000;
+      console.log(`[preview] ${origin}→${destination} retrying after ${Math.round(delay)}ms (reason: ${failureReason})`);
+      await new Promise((r) => setTimeout(r, delay));
+      continue;
+    }
+  }
+
+  // All attempts failed — log and throw
+  const totalCost =
+    (totalInputTokens / 1000) * costs.costPer1kInput +
+    (totalOutputTokens / 1000) * costs.costPer1kOutput;
+
+  await prisma.apiUsageLog.create({
+    data: {
+      provider: (await prisma.extractionConfig.findFirst({ where: { id: 'singleton' } }))?.provider ?? 'anthropic',
+      model: (await prisma.extractionConfig.findFirst({ where: { id: 'singleton' } }))?.model ?? 'claude-haiku-4-5-20251001',
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      costUsd: totalCost,
+      operation: 'preview-flights',
+      durationMs: 0,
+      error: `[${lastFailureReason}] ${origin} → ${destination}`,
+    },
+  });
+
+  const sourceName = lastSource === 'airline_direct' ? 'The airline website' : 'Google Flights';
+  const messages: Record<string, string> = {
+    page_not_loaded: `${sourceName} did not load results — blocked or CAPTCHA'd`,
+    no_json_in_response: `Could not extract flight data from ${sourceName}`,
+    empty_extraction: `No flights found — ${sourceName} may be rate-limiting`,
+    all_filtered_out: `Flights exist but none matched your filters`,
+  };
+  throw new Error(messages[lastFailureReason!] ?? 'Flight extraction failed');
 }
 
 export async function POST(request: NextRequest) {
@@ -37,14 +176,25 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body) return apiError('Invalid JSON body', 400);
 
-  const { origin, destination, dateFrom, dateTo, maxPrice, maxStops, preferredAirlines, timePreference, cabinClass, tripType } = body;
+  const { dateFrom, dateTo, maxPrice, maxStops, preferredAirlines, timePreference, cabinClass, tripType } = body;
 
-  if (!origin || !destination || !dateFrom || !dateTo) {
-    return apiError('Missing required fields: origin, destination, dateFrom, dateTo', 400);
+  // Accept either arrays (new) or single values (legacy)
+  const origins: Airport[] = Array.isArray(body.origins)
+    ? body.origins
+    : body.origin ? [{ code: body.origin, name: body.originName || body.origin }] : [];
+  const destinations: Airport[] = Array.isArray(body.destinations)
+    ? body.destinations
+    : body.destination ? [{ code: body.destination, name: body.destinationName || body.destination }] : [];
+
+  if (origins.length === 0 || destinations.length === 0 || !dateFrom || !dateTo) {
+    return apiError('Missing required fields: origins, destinations, dateFrom, dateTo', 400);
   }
 
-  if (!/^[A-Z]{3}$/.test(origin) || !/^[A-Z]{3}$/.test(destination)) {
-    return apiError('Invalid airport code — must be 3 uppercase letters', 400);
+  // Validate all airport codes
+  for (const a of [...origins, ...destinations]) {
+    if (!/^[A-Z]{3}$/.test(a.code)) {
+      return apiError(`Invalid airport code "${a.code}" — must be 3 uppercase letters`, 400);
+    }
   }
 
   const from = new Date(dateFrom + 'T00:00:00Z');
@@ -59,141 +209,73 @@ export async function POST(request: NextRequest) {
     return apiError('dateFrom must be before dateTo', 400);
   }
 
-  const cacheKey = buildCacheKey({ origin, destination, dateFrom, dateTo });
+  const airlines: string[] = Array.isArray(preferredAirlines) ? preferredAirlines : [];
+
+  // Generate all origin × destination combos
+  const combos: Array<{ origin: Airport; destination: Airport }> = [];
+  for (const o of origins) {
+    for (const d of destinations) {
+      combos.push({ origin: o, destination: d });
+    }
+  }
 
   try {
-    const prices = await cached<PriceData[]>(cacheKey, async () => {
-      const searchParams = {
-        origin,
-        destination,
-        dateFrom: from,
-        dateTo: to,
-        cabinClass: cabinClass || 'economy',
-        tripType: tripType || 'round_trip',
-      };
+    const routes: RouteResult[] = [];
 
-      const airlines: string[] = Array.isArray(preferredAirlines) ? preferredAirlines : [];
-      const directAirline = airlines.length === 1 && isKnownAirline(airlines[0]!) ? airlines[0]! : null;
+    // Scrape each combo sequentially (avoid rate limits)
+    for (const combo of combos) {
+      const cacheKey = buildCacheKey(combo.origin.code, combo.destination.code, dateFrom, dateTo);
 
-      const travelDateFallback = dateFrom;
-      const filters = {
-        maxPrice: maxPrice ? Number(maxPrice) : null,
-        maxStops: maxStops !== undefined && maxStops !== null ? Number(maxStops) : null,
-        preferredAirlines: airlines,
-        timePreference: timePreference || 'any',
-        cabinClass: cabinClass || 'economy',
-      };
-
-      const config = await prisma.extractionConfig.findFirst({ where: { id: 'singleton' } });
-      const provider = config?.provider ?? 'anthropic';
-      const model = config?.model ?? 'claude-haiku-4-5-20251001';
-      const costs = getModelCosts(provider, model);
-
-      let totalInputTokens = 0;
-      let totalOutputTokens = 0;
-      let lastFailureReason: ExtractionFailureReason | undefined;
-      let lastSource: string = 'google_flights';
-
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        console.log(`[preview] ${origin}→${destination} attempt ${attempt}/${MAX_ATTEMPTS}`);
-
-        let nav;
-        try {
-          nav = directAirline
-            ? await navigateAirlineDirect(searchParams, directAirline)
-            : await navigateGoogleFlights(searchParams);
-        } catch {
-          nav = await navigateGoogleFlights(searchParams);
-        }
-
-        lastSource = nav.source;
-
-        const { prices: extracted, usage, failureReason } = await extractPrices(
-          nav.html,
-          nav.url,
-          travelDateFallback,
-          filters,
-          PREVIEW_MAX_RESULTS,
-          nav.resultsFound,
-          nav.source
+      try {
+        const flights = await cached<PriceData[]>(cacheKey, () =>
+          scrapeRoute({
+            origin: combo.origin.code,
+            destination: combo.destination.code,
+            dateFrom: from,
+            dateTo: to,
+            dateFromStr: dateFrom,
+            cabinClass: cabinClass || 'economy',
+            tripType: tripType || 'round_trip',
+            maxPrice: maxPrice ? Number(maxPrice) : null,
+            maxStops: maxStops !== undefined && maxStops !== null ? Number(maxStops) : null,
+            preferredAirlines: airlines,
+            timePreference: timePreference || 'any',
+          })
         );
 
-        totalInputTokens += usage.inputTokens;
-        totalOutputTokens += usage.outputTokens;
-
-        if (!failureReason) {
-          // Log successful usage
-          const cost =
-            (totalInputTokens / 1000) * costs.costPer1kInput +
-            (totalOutputTokens / 1000) * costs.costPer1kOutput;
-
-          await prisma.apiUsageLog.create({
-            data: {
-              provider,
-              model,
-              inputTokens: totalInputTokens,
-              outputTokens: totalOutputTokens,
-              costUsd: cost,
-              operation: 'preview-flights',
-              durationMs: 0,
-            },
-          });
-
-          console.log(`[preview] ${origin}→${destination} OK — ${extracted.length} flights (attempt ${attempt})`);
-          return extracted;
-        }
-
-        lastFailureReason = failureReason;
-
-        // Save debug HTML on failure
-        try {
-          await mkdir(DEBUG_DIR, { recursive: true });
-          const ts = new Date().toISOString().replace(/[:.]/g, '-');
-          const path = `${DEBUG_DIR}/preview-${origin}-${destination}-attempt${attempt}-${ts}.html`;
-          await writeFile(path, nav.html, 'utf-8');
-          console.log(`[preview] saved debug HTML → ${path} (${nav.html.length} chars)`);
-        } catch {
-          // ignore write errors
-        }
-
-        // Retry on transient failures
-        if (attempt < MAX_ATTEMPTS && RETRYABLE_FAILURES.includes(failureReason)) {
-          const delay = 5000 + Math.random() * 5000;
-          console.log(`[preview] ${origin}→${destination} retrying after ${Math.round(delay)}ms (reason: ${failureReason})`);
-          await new Promise((r) => setTimeout(r, delay));
-          continue;
-        }
+        routes.push({
+          origin: combo.origin.code,
+          originName: combo.origin.name,
+          destination: combo.destination.code,
+          destinationName: combo.destination.name,
+          flights,
+        });
+      } catch (err) {
+        // Partial failure — include route with error, continue with others
+        routes.push({
+          origin: combo.origin.code,
+          originName: combo.origin.name,
+          destination: combo.destination.code,
+          destinationName: combo.destination.name,
+          flights: [],
+          error: err instanceof Error ? err.message : 'Failed to search this route',
+        });
       }
+    }
 
-      // All attempts failed — log usage and throw
-      const totalCost =
-        (totalInputTokens / 1000) * costs.costPer1kInput +
-        (totalOutputTokens / 1000) * costs.costPer1kOutput;
+    // If ALL routes failed, return error
+    const hasFlights = routes.some((r) => r.flights.length > 0);
+    if (!hasFlights) {
+      const firstError = routes.find((r) => r.error)?.error ?? 'No flights found for any route';
+      return apiError(firstError, 500);
+    }
 
-      await prisma.apiUsageLog.create({
-        data: {
-          provider,
-          model,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          costUsd: totalCost,
-          operation: 'preview-flights',
-          durationMs: 0,
-          error: `[${lastFailureReason}] ${origin} → ${destination} ${dateFrom} to ${dateTo}`,
-        },
-      });
+    // Backward compat: if single route, also include flat `flights` array
+    if (routes.length === 1) {
+      return apiSuccess({ flights: routes[0]!.flights, routes });
+    }
 
-      const sourceName = lastSource === 'airline_direct' ? 'The airline website' : 'Google Flights';
-      const messages: Record<string, string> = {
-        page_not_loaded: `${sourceName} did not load results — the page was blocked or served a CAPTCHA. Try again in a few minutes.`,
-        no_json_in_response: `Scraped the page but could not extract flight data — ${sourceName} may have returned an error page. Try again.`,
-        empty_extraction: `Page loaded but no flights were found in the HTML — ${sourceName} may be rate-limiting. Try again in a few minutes.`,
-        all_filtered_out: `Flights exist for ${origin} → ${destination}, but none matched your filters. Try relaxing price, stops, or airline preferences.`,
-      };
-      throw new Error(messages[lastFailureReason!] ?? 'Flight extraction failed. Try again.');
-    });
-
-    return apiSuccess({ flights: prices });
+    return apiSuccess({ routes });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to preview flights';
     return apiError(msg, 500);
