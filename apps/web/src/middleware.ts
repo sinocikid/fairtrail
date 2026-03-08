@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'crypto';
 import { classifyBot, classifyByHeaders, isMaliciousPath } from '@/lib/analytics/bots';
 
 const SESSION_COOKIE = 'ft-session';
 
-function verifyHmacToken(token: string): boolean {
+async function verifyHmacToken(token: string): Promise<boolean> {
   const secret = process.env.ADMIN_SESSION_SECRET;
   if (!secret) return false;
 
@@ -15,14 +14,31 @@ function verifyHmacToken(token: string): boolean {
   const sig = token.slice(lastDot + 1);
 
   try {
-    const expected = createHmac('sha256', secret).update(payload).digest('hex');
-    return timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+    const expected = Array.from(new Uint8Array(signature))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    if (sig.length !== expected.length) return false;
+    let result = 0;
+    for (let i = 0; i < sig.length; i++) {
+      result |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
+    }
+    return result === 0;
   } catch {
     return false;
   }
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Block .php requests — always bot probes
@@ -38,7 +54,7 @@ export function middleware(request: NextRequest) {
   // Admin pages (not login) — require session
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     const token = request.cookies.get(SESSION_COOKIE)?.value;
-    if (!token || !verifyHmacToken(token)) {
+    if (!token || !(await verifyHmacToken(token))) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
   }
@@ -46,7 +62,7 @@ export function middleware(request: NextRequest) {
   // Admin API routes — require session
   if (pathname.startsWith('/api/admin') && !pathname.startsWith('/api/admin/auth')) {
     const token = request.cookies.get(SESSION_COOKIE)?.value;
-    if (!token || !verifyHmacToken(token)) {
+    if (!token || !(await verifyHmacToken(token))) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
   }
