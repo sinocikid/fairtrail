@@ -20,6 +20,7 @@ services:
       - "127.0.0.1:6380:6379"
 
   web:
+    build: .
     image: ghcr.io/affromero/fairtrail:latest
     restart: unless-stopped
     depends_on:
