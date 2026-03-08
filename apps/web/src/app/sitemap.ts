@@ -8,7 +8,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     where: {
       active: true,
       firstViewedAt: { not: null },
-      expiresAt: { gt: new Date() },
+      OR: [
+        { isSeed: true },
+        { expiresAt: { gt: new Date() } },
+      ],
     },
     select: {
       id: true,
@@ -29,6 +32,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 1,
+    },
+    {
+      url: 'https://fairtrail.org/explore',
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.9,
     },
     ...queryEntries,
   ];
