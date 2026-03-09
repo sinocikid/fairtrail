@@ -111,6 +111,9 @@ jobs:
             chmod 600 ~/.config/fairtrail/env
             rm -f /tmp/ft-cron-env
 
+            echo "Logging into GHCR..."
+            echo "${REPO_TOKEN}" | docker login ghcr.io -u affromero --password-stdin
+
             echo "Pulling published image..."
             docker compose -f docker-compose.prod.yml pull web
 
