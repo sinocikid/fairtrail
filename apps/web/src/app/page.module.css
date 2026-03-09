@@ -204,6 +204,39 @@
   border-radius: 50%;
 }
 
+/* What Fairtrail is not (fairtrail.org) */
+.notSection {
+  width: 100%;
+  max-width: 720px;
+  padding: 3rem 1.5rem 4rem;
+  border-top: 1px solid var(--border);
+}
+
+.notItems {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.notItem {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.notIcon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
 /* Why self-hosted (fairtrail.org) */
 .selfHost {
   width: 100%;

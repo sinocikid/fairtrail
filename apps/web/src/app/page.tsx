@@ -165,6 +165,50 @@ export default async function HomePage() {
       )}
 
       {!isSelfHosted && (
+        <section className={styles.notSection}>
+          <h2 className={styles.whyTitle}>What Fairtrail is not</h2>
+          <div className={styles.notItems}>
+            <div className={styles.notItem}>
+              <span className={styles.notIcon} aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708Z" fill="currentColor"/></svg>
+              </span>
+              <div>
+                <h3 className={styles.reasonTitle}>Not a flight search engine</h3>
+                <p className={styles.reasonText}>
+                  Fairtrail doesn&apos;t show you available flights right now.
+                  It tracks prices over time so you can see how fares evolve before you buy.
+                </p>
+              </div>
+            </div>
+            <div className={styles.notItem}>
+              <span className={styles.notIcon} aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708Z" fill="currentColor"/></svg>
+              </span>
+              <div>
+                <h3 className={styles.reasonTitle}>Not a booking platform</h3>
+                <p className={styles.reasonText}>
+                  We don&apos;t sell tickets or take a cut. Every data point links directly
+                  to the airline &mdash; you book with them, not through us.
+                </p>
+              </div>
+            </div>
+            <div className={styles.notItem}>
+              <span className={styles.notIcon} aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708Z" fill="currentColor"/></svg>
+              </span>
+              <div>
+                <h3 className={styles.reasonTitle}>Not a price predictor</h3>
+                <p className={styles.reasonText}>
+                  No black-box &ldquo;buy now&rdquo; advice. Fairtrail shows you real price
+                  history and lets you decide when the moment is right.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {!isSelfHosted && (
         <section className={styles.selfHost}>
           <h2 className={styles.whyTitle}>Why self-hosted?</h2>
           <p className={styles.selfHostLead}>
