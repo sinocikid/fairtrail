@@ -49,7 +49,6 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder --chown=node:node /app/apps/web/prisma ./apps/web/prisma
 COPY --from=proddeps --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=proddeps --chown=node:node /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=proddeps --chown=node:node /app/node_modules/prisma ./node_modules/prisma
 
 # Runtime packages that standalone trace misses (dynamic imports in cron callbacks)
 COPY --from=proddeps --chown=node:node /app/node_modules/ioredis ./node_modules/ioredis

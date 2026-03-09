@@ -56,7 +56,7 @@ echo "[setup] Database is ready"
 
 # --- Run migrations ---
 echo "[setup] Applying database schema..."
-npx prisma db push --schema=apps/web/prisma/schema.prisma --skip-generate --accept-data-loss 2>&1 | tail -1
+npx prisma@6 db push --schema=apps/web/prisma/schema.prisma --skip-generate --accept-data-loss 2>&1 | tail -1
 echo "[setup] Schema ready"
 
 # --- Start the app ---
