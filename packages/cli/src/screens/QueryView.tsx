@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import Spinner from 'ink-spinner';
 import { prisma } from '@/lib/prisma';
 import { PriceChart } from '../components/PriceChart.js';
 import { BestPriceCard } from '../components/BestPriceCard.js';
 import { formatDate, formatCurrency, formatStops, formatTimeAgo } from '../lib/format.js';
+
+const REFRESH_INTERVAL = 30; // seconds
 
 interface Snapshot {
   id: string;
@@ -45,69 +47,106 @@ export function QueryView({ id, onBack }: QueryViewProps) {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState<QueryData | null>(null);
   const [error, setError] = useState('');
+  const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
+  const [refreshing, setRefreshing] = useState(false);
   const isTTY = process.stdin.isTTY ?? false;
+  const prevSnapshotCount = useRef(0);
+  const [newDataFlash, setNewDataFlash] = useState(false);
+
+  const fetchData = useCallback(async (isInitial = false) => {
+    try {
+      if (!isInitial) setRefreshing(true);
+
+      const row = await prisma.query.findUnique({
+        where: { id },
+        include: {
+          snapshots: {
+            where: { status: 'available' },
+            orderBy: { scrapedAt: 'desc' },
+          },
+          fetchRuns: {
+            orderBy: { startedAt: 'desc' },
+            take: 1,
+            select: { startedAt: true },
+          },
+        },
+      });
+
+      if (!row) {
+        setError(`Query "${id}" not found`);
+        return;
+      }
+
+      const snapshots = row.snapshots.map((s) => ({
+        id: s.id,
+        price: s.price,
+        currency: s.currency,
+        airline: s.airline,
+        stops: s.stops,
+        duration: s.duration,
+        bookingUrl: s.bookingUrl,
+        travelDate: s.travelDate,
+        scrapedAt: s.scrapedAt,
+        status: s.status,
+      }));
+
+      if (!isInitial && snapshots.length > prevSnapshotCount.current) {
+        setNewDataFlash(true);
+        setTimeout(() => setNewDataFlash(false), 2000);
+      }
+      prevSnapshotCount.current = snapshots.length;
+
+      setQuery({
+        id: row.id,
+        origin: row.origin,
+        originName: row.originName,
+        destination: row.destination,
+        destinationName: row.destinationName,
+        dateFrom: row.dateFrom,
+        dateTo: row.dateTo,
+        currency: row.currency,
+        active: row.active,
+        expiresAt: row.expiresAt,
+        createdAt: row.createdAt,
+        snapshots,
+        lastScraped: row.fetchRuns[0]?.startedAt ?? null,
+      });
+    } catch (err) {
+      if (!query) setError(err instanceof Error ? err.message : 'Failed to load query');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setCountdown(REFRESH_INTERVAL);
+    }
+  }, [id, query]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData(true);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Countdown timer — ticks every second
+  useEffect(() => {
+    if (loading || error) return;
+
+    const timer = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          fetchData();
+          return REFRESH_INTERVAL;
+        }
+        return c - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [loading, error, fetchData]);
 
   useInput((input, key) => {
     if (input === 'q') exit();
+    if (input === 'r' && !refreshing) fetchData();
     if ((input === 'b' || key.escape) && onBack) onBack();
   }, { isActive: isTTY });
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const row = await prisma.query.findUnique({
-          where: { id },
-          include: {
-            snapshots: {
-              where: { status: 'available' },
-              orderBy: { scrapedAt: 'desc' },
-            },
-            fetchRuns: {
-              orderBy: { startedAt: 'desc' },
-              take: 1,
-              select: { startedAt: true },
-            },
-          },
-        });
-
-        if (!row) {
-          setError(`Query "${id}" not found`);
-          return;
-        }
-
-        setQuery({
-          id: row.id,
-          origin: row.origin,
-          originName: row.originName,
-          destination: row.destination,
-          destinationName: row.destinationName,
-          dateFrom: row.dateFrom,
-          dateTo: row.dateTo,
-          currency: row.currency,
-          active: row.active,
-          expiresAt: row.expiresAt,
-          createdAt: row.createdAt,
-          snapshots: row.snapshots.map((s) => ({
-            id: s.id,
-            price: s.price,
-            currency: s.currency,
-            airline: s.airline,
-            stops: s.stops,
-            duration: s.duration,
-            bookingUrl: s.bookingUrl,
-            travelDate: s.travelDate,
-            scrapedAt: s.scrapedAt,
-            status: s.status,
-          })),
-          lastScraped: row.fetchRuns[0]?.startedAt ?? null,
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load query');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id]);
 
   if (loading) {
     return (
@@ -126,7 +165,6 @@ export function QueryView({ id, onBack }: QueryViewProps) {
 
   const available = query.snapshots.filter((s) => s.status === 'available');
 
-  // Price history: latest per airline, sorted by price
   const latestByAirline = new Map<string, Snapshot>();
   for (const s of available) {
     if (!latestByAirline.has(s.airline) || s.scrapedAt > latestByAirline.get(s.airline)!.scrapedAt) {
@@ -135,25 +173,26 @@ export function QueryView({ id, onBack }: QueryViewProps) {
   }
   const priceHistory = [...latestByAirline.values()].sort((a, b) => a.price - b.price);
 
+  const barWidth = 20;
+  const filled = Math.round(((REFRESH_INTERVAL - countdown) / REFRESH_INTERVAL) * barWidth);
+  const countdownBar = '█'.repeat(filled) + '░'.repeat(barWidth - filled);
+
   return (
     <Box flexDirection="column">
-      {/* Route header */}
       <Box marginBottom={1}>
         <Text bold color="white">{query.originName}</Text>
         <Text color="cyan">{' → '}</Text>
         <Text bold color="white">{query.destinationName}</Text>
         <Text dimColor>{'  '}{formatDate(query.dateFrom)} – {formatDate(query.dateTo)}</Text>
+        {newDataFlash && <Text color="green" bold>{'  ● NEW DATA'}</Text>}
       </Box>
 
-      {/* Chart */}
       <PriceChart snapshots={available} currency={query.currency} />
 
-      {/* Best price */}
       <Box marginTop={1}>
         <BestPriceCard snapshots={available} />
       </Box>
 
-      {/* Price history table */}
       {priceHistory.length > 0 && (
         <Box marginTop={1} flexDirection="column">
           <Text bold color="cyan">Current Prices</Text>
@@ -176,17 +215,26 @@ export function QueryView({ id, onBack }: QueryViewProps) {
         </Box>
       )}
 
-      {/* Status */}
-      <Box marginTop={1}>
+      <Box marginTop={1} flexDirection="row">
+        {refreshing ? (
+          <Box>
+            <Text color="cyan"><Spinner type="dots" /></Text>
+            <Text dimColor>{' '}Refreshing...</Text>
+          </Box>
+        ) : (
+          <Box>
+            <Text dimColor>Next refresh: {countdown}s </Text>
+            <Text color="cyan">{countdownBar}</Text>
+          </Box>
+        )}
         <Text dimColor>
-          ID: {query.id}  ·  {query.active ? 'Active' : 'Paused'}
-          {query.lastScraped ? `  ·  Last scraped: ${formatTimeAgo(query.lastScraped)}` : ''}
-          {available.length > 0 ? `  ·  ${available.length} snapshots` : ''}
+          {'  '}{available.length} snapshots
+          {query.lastScraped ? `  ·  Scraped ${formatTimeAgo(query.lastScraped)}` : ''}
         </Text>
       </Box>
 
       <Box marginTop={1}>
-        <Text dimColor>{onBack ? 'b: back  ' : ''}q: quit</Text>
+        <Text dimColor>{onBack ? 'b: back  ' : ''}r: refresh now  q: quit</Text>
       </Box>
     </Box>
   );
