@@ -85,7 +85,6 @@ export function SearchWizard() {
         setError(result.find((r) => r.error)?.error ?? 'No flights found');
         setStep('input');
       } else {
-        setCurrentRouteIdx(0);
         setStep('select');
       }
     } catch (err) {

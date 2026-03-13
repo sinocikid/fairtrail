@@ -63,19 +63,10 @@ tmux send-keys -t "$P1" "export PATH=$DEMO_DIR:\$PATH && cd $(pwd) && clear" Ent
 tmux send-keys -t "$P2" "export PATH=$DEMO_DIR:\$PATH && cd $(pwd) && clear" Enter
 sleep 1
 
-# Open Ghostty fullscreen
-ghostty -e tmux attach-session -t "$SESSION" &
+# Open Ghostty at a fixed size (no fullscreen — prevents recording from losing the window)
+ghostty --window-width=240 --window-height=60 -e tmux attach-session -t "$SESSION" &
 disown
 sleep 3
-osascript -e '
-tell application "System Events"
-  tell process "Ghostty"
-    set frontmost to true
-    click menu item "Enter Full Screen" of menu "Window" of menu bar 1
-  end tell
-end tell
-' 2>/dev/null || true
-sleep 2
 tmux send-keys -t "$P1" "clear" Enter
 tmux send-keys -t "$P2" "clear" Enter
 sleep 1
