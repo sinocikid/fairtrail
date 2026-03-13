@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0] - 2026-03-13
+
+### Added
+- **Headless CLI TUI** (`--headless`) — full terminal interface for flight price tracking using Ink 6 (React for terminals)
+  - Interactive search wizard: natural language query, LLM parse, Playwright scrape, flight selection, DB tracking
+  - `--headless --list` — navigable table of all tracked queries with status, prices, last scraped time
+  - `--headless --view <id>` — live price chart with Unicode braille rendering, auto-refresh every 30s with countdown bar, per-airline colored trend lines
+  - `--headless --view <id> --tmux` — opens isolated tmux session in new Ghostty window with one pane per grouped route
+- **`packages/cli/` workspace** — new monorepo package sharing scraper libs from `apps/web/` via custom Node.js ESM alias loader
+- **Braille chart renderer** — Unicode braille characters (2x4 dot grid) with Bresenham line drawing, dynamic Y-axis scaling, rolling time window
+- Without `--headless`, `--view` opens the web browser and `--list` opens the admin dashboard
+- 28 unit tests for chart renderer and formatters, plus E2E test script
+
+### Fixed
+- Chart dynamically adapts to tmux pane dimensions on resize
+
+### Changed
+- Root `npm run cli` now implies `--headless` for terminal usage
+- CI lint and typecheck now include the CLI workspace
+
 ## [0.2.3] - 2026-03-13
 
 ### Fixed
