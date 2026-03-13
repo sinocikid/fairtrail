@@ -1,4 +1,4 @@
-import { EXTRACTION_PROVIDERS, type ExtractionResult } from './ai-registry';
+import { EXTRACTION_PROVIDERS, CLI_PROVIDERS, type ExtractionResult } from './ai-registry';
 import { prisma } from '@/lib/prisma';
 
 export interface Airport {
@@ -200,7 +200,8 @@ export async function parseFlightQuery(
     throw new Error(`Unknown extraction provider: ${provider}`);
   }
 
-  const apiKey = process.env[providerConfig.envKey];
+  const isCliProvider = provider in CLI_PROVIDERS;
+  const apiKey = process.env[providerConfig.envKey] ?? (isCliProvider ? '1' : '');
   if (!apiKey) {
     throw new Error(`Missing API key: ${providerConfig.envKey}`);
   }

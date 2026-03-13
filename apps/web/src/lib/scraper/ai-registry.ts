@@ -243,7 +243,7 @@ export const EXTRACTION_PROVIDERS: Record<string, ProviderConfig> = {
   },
 };
 
-const CLI_PROVIDERS: Record<string, string> = {
+export const CLI_PROVIDERS: Record<string, string> = {
   'claude-code': 'claude',
   codex: 'codex',
 };
