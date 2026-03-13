@@ -17,7 +17,9 @@ interface PriceChartProps {
   height?: number;
 }
 
-export function PriceChart({ snapshots, currency, width = 70, height = 12 }: PriceChartProps) {
+export function PriceChart({ snapshots, currency, width, height }: PriceChartProps) {
+  const termWidth = width ?? Math.min(process.stdout.columns || 80, 120);
+  const termHeight = height ?? Math.max(8, Math.min(Math.floor((process.stdout.rows || 24) * 0.4), 18));
   if (snapshots.length === 0) {
     return <Text dimColor>No price data yet — waiting for first scrape.</Text>;
   }
@@ -47,8 +49,8 @@ export function PriceChart({ snapshots, currency, width = 70, height = 12 }: Pri
   }
 
   const chart = renderBrailleChart(series, {
-    width,
-    height,
+    width: termWidth,
+    height: termHeight,
     yLabel: currencySymbol(currency),
     xLabels,
   });
