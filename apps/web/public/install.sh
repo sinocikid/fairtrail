@@ -223,6 +223,7 @@ services:
       CHROME_PATH: /usr/bin/chromium-browser
       NODE_ENV: production
       SELF_HOSTED: "true"
+      PORT: "3003"
     volumes:
       - app-data:/app/data
       - cli-cache:/home/node/.npm-global
