@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "doppler run -- node --import tsx/esm --import ./register.mjs src/e2e-test.ts"
   },
   "dependencies": {
     "chalk": "^5.4.0",
