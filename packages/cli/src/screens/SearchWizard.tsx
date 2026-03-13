@@ -18,14 +18,14 @@ export function SearchWizard() {
   const [inputValue, setInputValue] = useState('');
   const [parsed, setParsed] = useState<ParsedFlightQuery | null>(null);
   const [ambiguities, setAmbiguities] = useState<ParseAmbiguity[]>([]);
-  const [conversation, setConversation] = useState<Array<{ role: string; content: string }>>([]);
+  const [conversation, setConversation] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [routes, setRoutes] = useState<RouteResult[]>([]);
   const [progressMsg, setProgressMsg] = useState('');
   const [error, setError] = useState('');
   const [createdQueries, setCreatedQueries] = useState<CreatedQuery[]>([]);
   const [currentRouteIdx, setCurrentRouteIdx] = useState(0);
 
-  const handleParse = useCallback(async (input: string, history?: Array<{ role: string; content: string }>) => {
+  const handleParse = useCallback(async (input: string, history?: Array<{ role: 'user' | 'assistant'; content: string }>) => {
     setStep('parsing');
     setError('');
     try {
