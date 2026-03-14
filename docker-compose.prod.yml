@@ -10,6 +10,11 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -18,33 +23,34 @@ services:
       - redisdata:/data
     ports:
       - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   web:
     image: ghcr.io/affromero/fairtrail:latest
     restart: unless-stopped
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "127.0.0.1:3003:3003"
     volumes:
-      - /home/sotto/.claude:/home/node/.claude-host:ro
       - analytics-data:/app/data
-      - cli-cache:/home/node/.npm-global
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/fairtrail
       REDIS_URL: redis://redis:6379
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET}
-      CRON_SECRET: ${CRON_SECRET}
-      CHROME_PATH: /usr/bin/chromium-browser
+      SELF_HOSTED: "false"
+      CRON_ENABLED: "false"
       NODE_ENV: production
 
 volumes:
   pgdata:
   redisdata:
   analytics-data:
-  cli-cache:

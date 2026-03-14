@@ -95,13 +95,6 @@ jobs:
             fi
             DOPPLER_TOKEN="${DOPPLER_PRD_TOKEN}" doppler secrets download --no-file --format env-no-quotes > ~/fairtrail/.env
 
-            echo "Writing systemd env file..."
-            mkdir -p ~/.config/fairtrail
-            DOPPLER_TOKEN="${DOPPLER_PRD_TOKEN}" doppler secrets get CRON_SECRET --plain > /tmp/ft-cron-env
-            echo "CRON_SECRET=$(cat /tmp/ft-cron-env)" > ~/.config/fairtrail/env
-            chmod 600 ~/.config/fairtrail/env
-            rm -f /tmp/ft-cron-env
-
             echo "Logging into GHCR..."
             echo "${REPO_TOKEN}" | docker login ghcr.io -u affromero --password-stdin
 
@@ -158,11 +151,11 @@ jobs:
               fi
             done
 
-            echo "Syncing systemd timer..."
-            sudo cp ~/fairtrail/infra/fairtrail-scrape.service /etc/systemd/system/
-            sudo cp ~/fairtrail/infra/fairtrail-scrape.timer /etc/systemd/system/
+            echo "Cleaning up old scrape timer..."
+            sudo systemctl disable --now fairtrail-scrape.timer 2>/dev/null || true
+            sudo rm -f /etc/systemd/system/fairtrail-scrape.{service,timer}
             sudo systemctl daemon-reload
-            sudo systemctl enable --now fairtrail-scrape.timer
+            rm -rf ~/.config/fairtrail
 
             echo "Cleaning up old images..."
             docker image prune -f
