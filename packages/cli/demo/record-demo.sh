@@ -10,8 +10,8 @@ cd "$(git rev-parse --show-toplevel)"
 SESSION="ft-rec"
 DEMO_DIR="$(pwd)/packages/cli/demo"
 
-Q1="Round trip Frankfurt to Bogota and Medellin, Dec 5 to Dec 15, max 1 stop"
-Q2="Round trip Frankfurt to Cartagena and Lima, Dec 5 to Dec 15, max 2 stops"
+Q1="Round trip Frankfurt to Bogota or Medellin, Dec 5 to Dec 15, max 1 stop"
+Q2="Round trip Frankfurt to Cartagena or Lima, Dec 5 to Dec 15, max 2 stops"
 
 type_slow() {
   local pane=$1 text=$2
@@ -31,16 +31,24 @@ start_recording() {
   osascript -e 'tell application "Ghostty" to activate' 2>/dev/null || true
   sleep 1
   WID=$(/tmp/get_window_id ghostty 2>/dev/null)
-  screencapture -v -x -l "$WID" "$out" &
+  screencapture -v -x -l "$WID" "/tmp/$(basename "$out")" &
   REC_PID=$!
   sleep 1
   echo "Recording → $out (PID=$REC_PID, WID=$WID)"
 }
 
 stop_recording() {
+  local out=$1
   kill -INT "$REC_PID" 2>/dev/null || true
   wait "$REC_PID" 2>/dev/null || true
   sleep 2
+  local tmpfile="/tmp/$(basename "$out")"
+  if [ -f "$tmpfile" ]; then
+    cp "$tmpfile" "$out"
+    echo "Saved: $out ($(ls -lh "$out" | awk '{print $5}'))"
+  else
+    echo "WARNING: recording not found at $tmpfile"
+  fi
 }
 
 echo "=== Fairtrail CLI Demo ==="
@@ -120,7 +128,7 @@ L_ID=$(tmux capture-pane -t "$P1" -p -S -30 2>/dev/null | grep -oE 'cm[a-z0-9]{1
 R_ID=$(tmux capture-pane -t "$P2" -p -S -30 2>/dev/null | grep -oE 'cm[a-z0-9]{15,}' | tail -1)
 echo "IDs: left=$L_ID right=$R_ID"
 
-stop_recording
+stop_recording "$DEMO_DIR/fairtrail-search.mov"
 echo "[search] Recording saved"
 
 # ══════════════════════════════════════════
@@ -216,7 +224,7 @@ tmux send-keys -t "$P2" Enter
 echo "[view] Tmux panes..."
 sleep 15
 
-stop_recording
+stop_recording "$DEMO_DIR/fairtrail-view.mov"
 echo "[view] Recording saved"
 
 # ══════════════════════════════════════════

@@ -18,6 +18,12 @@ Track flight prices over time. Self-hosted. Open source. Bring your own LLM.
 <img src="assets/demo.gif" alt="Fairtrail — price evolution charts cycling through JFK→CDG, LAX→NRT, ORD→FCO" width="100%">
 
 <details>
+<summary>CLI Demo — headless mode with Claude Code & Codex</summary>
+<br>
+<img src="packages/cli/demo/fairtrail-demo.gif" alt="Fairtrail CLI — search with Claude Code and Codex side by side, then live price charts" width="100%">
+</details>
+
+<details>
 <summary>Screenshots</summary>
 <br>
 <img src="assets/home.png" alt="Landing page (dark)" width="100%">
@@ -204,6 +210,30 @@ You type: "SFO to Tokyo sometime in July ± 5 days"
 ```
 
 The built-in cron runs on a configurable interval (default: every 3h). Each run captures prices across all active queries and the chart pages update automatically.
+
+## Headless CLI
+
+Run Fairtrail entirely in the terminal — no browser needed.
+
+```bash
+fairtrail --headless                              # Interactive search wizard
+fairtrail --headless --backend claude-code        # Use Claude Code as AI backend
+fairtrail --headless --backend codex              # Use Codex as AI backend
+fairtrail --headless --list                       # Show all tracked queries
+fairtrail --headless --view <id>                  # Live price chart (auto-refreshes every 30s)
+fairtrail --headless --view <id> --tmux           # Split grouped routes into tmux panes
+```
+
+Without `--headless`, `--view` opens the chart in your browser and `--list` opens the admin dashboard.
+
+### Features
+
+- **Natural language search** — same as the web, powered by your chosen AI backend
+- **Braille chart** — Unicode price evolution chart with per-airline colored trend lines
+- **Live refresh** — countdown bar, auto-refreshes from DB, flashes when new data arrives
+- **Multi-destination** — "Frankfurt to Bogota or Medellin" searches both routes
+- **tmux integration** — `--tmux` splits each grouped route into its own pane
+- **Backend selection** — `--backend claude-code|codex|anthropic|openai|google`
 
 ## Managing Fairtrail
 

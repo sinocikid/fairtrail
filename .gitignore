@@ -13,6 +13,11 @@ dist/
 *.db-journal
 
 .DS_Store
+
+# Demo recordings — only keep the final GIF
+packages/cli/demo/*.mov
+packages/cli/demo/*.mp4
+packages/cli/demo/*.tape
 Thumbs.db
 
 next-env.d.ts

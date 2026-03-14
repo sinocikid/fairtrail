@@ -4,7 +4,9 @@ import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
 import SelectInput from 'ink-select-input';
 import { parseFlightQuery, type ParsedFlightQuery, type ParseAmbiguity } from '../../../../apps/web/src/lib/scraper/parse-query.js';
-import type { PriceData } from '../../../../apps/web/src/lib/scraper/extract-prices.js';
+import type { PriceData as BasePriceData } from '../../../../apps/web/src/lib/scraper/extract-prices.js';
+
+type PriceData = BasePriceData & { _routeIdx?: number };
 import { previewFlights, type RouteResult } from '../lib/preview.js';
 import { createTrackedQueries, type CreatedQuery } from '../lib/create-queries.js';
 import { ParsedQueryCard } from '../components/ParsedQueryCard.js';
@@ -96,16 +98,14 @@ export function SearchWizard() {
   const handleFlightSelect = useCallback(async (selectedFlights: PriceData[]) => {
     if (!parsed) return;
 
-    // Map selected flights back to their routes
+    // Map selected flights back to their routes via _routeIdx tag
     const routesWithFlights = routes.filter((r) => r.flights.length > 0);
     const selections: Array<{ route: RouteResult; flights: PriceData[] }> = [];
 
-    for (const route of routesWithFlights) {
-      const routeFlights = selectedFlights.filter((f) =>
-        route.flights.some((rf) => rf.airline === f.airline && rf.price === f.price && rf.travelDate === f.travelDate)
-      );
+    for (let ri = 0; ri < routesWithFlights.length; ri++) {
+      const routeFlights = selectedFlights.filter((f) => f._routeIdx === ri);
       if (routeFlights.length > 0) {
-        selections.push({ route, flights: routeFlights });
+        selections.push({ route: routesWithFlights[ri]!, flights: routeFlights });
       }
     }
 
@@ -212,7 +212,9 @@ export function SearchWizard() {
 
       {step === 'select' && (() => {
         const routesWithFlights = routes.filter((r) => r.flights.length > 0);
-        const allFlights = routesWithFlights.flatMap((r) => r.flights);
+        const allFlights = routesWithFlights.flatMap((r, ri) =>
+          r.flights.map((f) => ({ ...f, _routeIdx: ri }))
+        );
         if (allFlights.length === 0) return null;
         return (
           <Box flexDirection="column">

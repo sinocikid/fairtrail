@@ -81,32 +81,32 @@ export async function launchTmuxView(queryId: string): Promise<void> {
   }
 
   if (process.env.TMUX) {
-    // Inside tmux — split the CURRENT pane into sub-panes
+    // Inside tmux — create NEW panes for ALL queries (never send to own pane)
     const session = currentSession();
     const win = currentWindow();
-    const pane = currentPane();
-    const target = `${session}:${win}.${pane}`;
 
-    // First command runs in the current pane
-    const q0 = queries[0]!;
-    const firstCmd = buildViewCommand(q0.id);
-    const title0 = `${q0.origin}→${q0.destination} ${q0.dateFrom.toISOString().slice(0, 10)}`;
-    tmux('select-pane', '-t', target, '-T', title0);
-    tmux('send-keys', '-t', target, firstCmd, 'Enter');
-
-    // Split for remaining queries
-    for (let i = 1; i < queries.length; i++) {
+    // Split a new pane for each query, send commands there
+    for (let i = 0; i < queries.length; i++) {
       const q = queries[i]!;
       const cmd = buildViewCommand(q.id);
       const title = `${q.origin}→${q.destination} ${q.dateFrom.toISOString().slice(0, 10)}`;
-      const splitDir = i % 2 === 1 ? '-h' : '-v';
-      tmux('split-window', splitDir, '-t', target);
+      const splitDir = i % 2 === 0 ? '-v' : '-h';
+      tmux('split-window', splitDir, '-t', `${session}:${win}`);
       tmux('select-pane', '-T', title);
       tmux('send-keys', cmd, 'Enter');
     }
 
+    // Kill the original pane (the one running this command)
+    // It's the pane that launched --tmux and is about to exit anyway
+    const origPane = currentPane();
     tmux('select-layout', '-t', `${session}:${win}`, 'tiled');
-    console.log(`Split into ${queries.length} panes in current window`);
+
+    // Use kill-pane after a delay so this process can exit cleanly
+    setTimeout(() => {
+      try { tmux('kill-pane', '-t', `${session}:${win}.${origPane}`); } catch { /* ok */ }
+    }, 500);
+
+    console.log(`Opened ${queries.length} panes`);
   } else {
     // Outside tmux — create a new session and open in Ghostty
     try { tmux('kill-session', '-t', SESSION_NAME); } catch { /* ok */ }
