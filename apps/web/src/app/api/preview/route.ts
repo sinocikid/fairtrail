@@ -27,9 +27,10 @@ export interface RouteResult {
   error?: string;
 }
 
-function buildCacheKey(origin: string, destination: string, dateFrom: string, dateTo: string): string {
+function buildCacheKey(origin: string, destination: string, dateFrom: string, dateTo: string,
+  cabinClass: string, tripType: string, currency: string): string {
   const hash = createHash('sha256')
-    .update(`${origin}:${destination}:${dateFrom}:${dateTo}`)
+    .update(`${origin}:${destination}:${dateFrom}:${dateTo}:${cabinClass}:${tripType}:${currency}`)
     .digest('hex')
     .slice(0, 16);
   return `preview:${hash}`;
@@ -230,8 +231,6 @@ export async function POST(request: NextRequest) {
   // Build scrape tasks: each task is one Google Flights request
   // When outboundDates present: one scrape per date per combo
   // Otherwise: one scrape per combo with the full date range
-  const defaultReturnDate = returnDates?.[0] ?? dateTo;
-
   interface ScrapeTask {
     combo: { origin: Airport; destination: Airport };
     outboundDate: string;     // ISO date for departure
@@ -242,11 +241,13 @@ export async function POST(request: NextRequest) {
   const datesToScrape = outboundDates ?? [dateFrom];
 
   for (const combo of combos) {
-    for (const outDate of datesToScrape) {
+    for (let i = 0; i < datesToScrape.length; i++) {
+      const outDate = datesToScrape[i]!;
+      const retDate = isOneWay ? outDate : (returnDates?.[i] ?? dateTo);
       tasks.push({
         combo,
         outboundDate: outDate,
-        returnDate: isOneWay ? outDate : defaultReturnDate,
+        returnDate: retDate,
       });
     }
   }
@@ -264,7 +265,7 @@ export async function POST(request: NextRequest) {
       const { combo, outboundDate, returnDate } = task;
       const taskFrom = new Date(outboundDate + 'T00:00:00Z');
       const taskTo = new Date(returnDate + 'T00:00:00Z');
-      const cacheKey = buildCacheKey(combo.origin.code, combo.destination.code, outboundDate, returnDate);
+      const cacheKey = buildCacheKey(combo.origin.code, combo.destination.code, outboundDate, returnDate, cabinClass || 'economy', tripType || 'round_trip', currency);
 
       try {
         const flights = await cached<PriceData[]>(cacheKey, () =>

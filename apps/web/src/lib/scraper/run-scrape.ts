@@ -282,7 +282,21 @@ async function trySyncToHub(): Promise<void> {
   }
 }
 
+let scrapeInProgress = false;
+
 export async function runScrapeAll(): Promise<ScrapeResult[]> {
+  if (scrapeInProgress) {
+    throw new Error('Scrape already in progress');
+  }
+  scrapeInProgress = true;
+  try {
+    return await runScrapeAllInner();
+  } finally {
+    scrapeInProgress = false;
+  }
+}
+
+async function runScrapeAllInner(): Promise<ScrapeResult[]> {
   // Get global scrape interval default
   const config = await prisma.extractionConfig.findFirst({ where: { id: 'singleton' } });
   const globalInterval = config?.scrapeInterval ?? 3;

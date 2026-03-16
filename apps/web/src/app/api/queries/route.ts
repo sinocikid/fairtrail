@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
         tripType: tripType === 'one_way' ? 'one_way' : 'round_trip',
         currency,
         expiresAt: routeExpiry,
+        firstViewedAt: new Date(),
         deleteToken,
         groupId,
       },
