@@ -22,7 +22,7 @@ RED='\033[0;31m'
 RESET='\033[0m'
 
 FAIRTRAIL_DIR="$HOME/.fairtrail"
-PORT="${PORT:-3003}"
+PORT="${HOST_PORT:-${PORT:-3003}}"
 BASE_URL="${FAIRTRAIL_URL:-https://fairtrail.org}"
 
 if [ ! -f "$FAIRTRAIL_DIR/docker-compose.yml" ]; then

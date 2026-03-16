@@ -19,6 +19,9 @@ program
 
 const opts = program.opts() as { headless?: boolean; list?: boolean; view?: string; tmux?: boolean; backend?: string; model?: string };
 
+const baseUrl = process.env.FAIRTRAIL_URL
+  ?? `http://localhost:${process.env.HOST_PORT ?? process.env.PORT ?? '3003'}`;
+
 // Set backend/model override — update DB config so parse-query.ts and extract-prices.ts pick it up
 if (opts.backend) {
   process.env.FAIRTRAIL_BACKEND = opts.backend;
@@ -70,12 +73,12 @@ if (opts.headless) {
   }
 } else if (opts.view) {
   // Open web view in browser
-  const url = `http://localhost:3003/q/${opts.view}`;
+  const url = `${baseUrl}/q/${opts.view}`;
   console.log(`Opening ${url} in browser...`);
   import('child_process').then(({ exec }) => exec(`open "${url}"`));
 } else if (opts.list) {
   // Open admin dashboard in browser
-  const url = 'http://localhost:3003/admin/queries';
+  const url = `${baseUrl}/admin/queries`;
   console.log(`Opening ${url} in browser...`);
   import('child_process').then(({ exec }) => exec(`open "${url}"`));
 } else {

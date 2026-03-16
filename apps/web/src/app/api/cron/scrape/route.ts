@@ -13,7 +13,15 @@ export async function GET(request: NextRequest) {
   // Clean up queries never visited within 24h
   const deletedUnvisited = await cleanupUnvisitedQueries();
 
-  const results = await runScrapeAll();
+  let results;
+  try {
+    results = await runScrapeAll();
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Scrape already in progress') {
+      return apiError('Scrape already in progress', 409);
+    }
+    throw err;
+  }
 
   const summary = {
     deletedUnvisited,

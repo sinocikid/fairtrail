@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-response';
-import { createHash } from 'crypto';
+import { hashPassword } from '@/lib/password';
 import { registerForCommunity } from '@/lib/community-sync';
 
 export async function POST(request: Request) {
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
   const passwordHash = isSelfHosted
     ? 'self-hosted'
-    : createHash('sha256').update(adminPassword).digest('hex');
+    : await hashPassword(adminPassword);
 
   // Register for community API key if opted in
   let communityApiKey: string | null = null;

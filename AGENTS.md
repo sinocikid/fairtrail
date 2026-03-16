@@ -2,7 +2,7 @@
 
 > For agents, scripts, and CLI tools interacting with a local Fairtrail instance.
 
-Base URL: `http://localhost:3003` (or whatever `PORT` is set to in `.env`)
+Base URL: `http://localhost:3003` (or whatever `HOST_PORT` is set to in `.env`)
 
 All endpoints return JSON: `{ "data": {...} }` on success, `{ "error": "message" }` on failure.
 
