@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.7] - 2026-03-17
+
+### Added
+- vLLM as first-class local provider (GPU-accelerated inference, default port 8000)
+- Dynamic model discovery for vLLM via `/v1/models` endpoint
+- vLLM listed in README, landing page, and CLAUDE.md
+
+### Changed
+- Refactored `fetchLlamacppModels` into shared `fetchOpenAICompatModels` (reused by llamacpp and vLLM)
+
 ## [0.3.6] - 2026-03-17
 
 ### Added
