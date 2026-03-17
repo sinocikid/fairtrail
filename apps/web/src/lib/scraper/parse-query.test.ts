@@ -269,7 +269,7 @@ describe('parseFlightQuery', () => {
     expect(response.dateSpanDays).toBe(7);
   });
 
-  it('defaults currency to USD when omitted', async () => {
+  it('defaults currency to null when not specified', async () => {
     mockExtract.mockResolvedValue({
       content: makeLlmResponse({
         confidence: 'high',
@@ -292,7 +292,7 @@ describe('parseFlightQuery', () => {
     });
 
     const { response } = await parseFlightQuery('JFK to LAX');
-    expect(response.parsed?.currency).toBe('USD');
+    expect(response.parsed?.currency).toBeNull();
   });
 
   it('throws when llm returns no JSON', async () => {

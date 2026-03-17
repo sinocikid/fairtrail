@@ -22,7 +22,7 @@ export interface ParsedQuery {
   timePreference: string;
   cabinClass: string;
   tripType: string;
-  currency: string;
+  currency: string | null;
 }
 
 function formatDate(iso: string): string {
@@ -163,7 +163,7 @@ export function ConfirmationCard({
       {hasFilters(parsed) && (
         <div className={styles.filters}>
           {parsed.maxPrice && (
-            <span className={styles.tag}>Under {currencySymbol(parsed.currency)}{parsed.maxPrice}</span>
+            <span className={styles.tag}>Under {currencySymbol(parsed.currency ?? 'USD')}{parsed.maxPrice}</span>
           )}
           {parsed.maxStops !== null && (
             <span className={styles.tag}>

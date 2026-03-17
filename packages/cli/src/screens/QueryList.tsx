@@ -14,7 +14,7 @@ interface QueryRow {
   dateTo: Date;
   active: boolean;
   expiresAt: Date | null;
-  currency: string;
+  currency: string | null;
   lastScraped: Date | null;
   minPrice: number | null;
   maxPrice: number | null;
@@ -133,7 +133,7 @@ export function QueryList({ onView }: QueryListProps) {
         const statusColor = status === 'Active' ? 'green' : status === 'Expired' ? 'red' : 'yellow';
         const lastScraped = q.lastScraped ? formatTimeAgo(q.lastScraped) : '—';
         const prices = q.minPrice !== null && q.maxPrice !== null
-          ? `${formatCurrency(q.minPrice, q.currency)} – ${formatCurrency(q.maxPrice, q.currency)}`
+          ? `${formatCurrency(q.minPrice, q.currency ?? 'USD')} – ${formatCurrency(q.maxPrice, q.currency ?? 'USD')}`
           : '—';
 
         return (

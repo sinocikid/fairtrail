@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     tripType,
     currency: bodyCurrency,
   } = body;
-  const currency: string = typeof bodyCurrency === 'string' && bodyCurrency ? bodyCurrency : 'USD';
+  const currency: string | null = typeof bodyCurrency === 'string' && bodyCurrency ? bodyCurrency : null;
 
   // Support both new (routes array) and legacy (single origin/destination) formats
   let routeInputs: RouteInput[];

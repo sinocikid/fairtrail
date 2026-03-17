@@ -30,7 +30,7 @@ export async function GET() {
     queryId: string;
     origin: string;
     destination: string;
-    currency: string;
+    currency: string | null;
     previousMin: number;
     currentMin: number;
     drop: number;

@@ -102,13 +102,11 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
 
       const { parsed: p, confidence, ambiguities: ambs } = data.data;
 
-      // If the LLM defaulted to USD and user didn't explicitly ask for it,
+      // If the LLM didn't detect a currency (null = user didn't mention one),
       // use the browser's locale currency instead
-      if (p && p.currency === 'USD') {
+      if (p && !p.currency) {
         const localeCurrency = detectLocaleCurrency();
-        if (localeCurrency !== 'USD') {
-          p.currency = localeCurrency;
-        }
+        p.currency = localeCurrency;
       }
 
       if (confidence === 'high' && p) {

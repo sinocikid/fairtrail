@@ -133,10 +133,10 @@ describe('POST /api/queries', () => {
     expect(createArg.data.flexibility).toBe(14);
   });
 
-  it('defaults currency to USD', async () => {
+  it('defaults currency to null when not provided', async () => {
     await POST(makeRequest({ ...validBody, currency: undefined }));
-    const createArg = mockQueryCreate.mock.calls[0]![0] as { data: { currency: string } };
-    expect(createArg.data.currency).toBe('USD');
+    const createArg = mockQueryCreate.mock.calls[0]![0] as { data: { currency: string | null } };
+    expect(createArg.data.currency).toBeNull();
   });
 
   it('creates initial price snapshots from selected flights', async () => {

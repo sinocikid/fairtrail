@@ -12,6 +12,8 @@ interface Config {
   hasAdminPassword: boolean;
   communitySharing: boolean;
   communityApiKey: string | null;
+  defaultCurrency: string | null;
+  defaultCountry: string | null;
 }
 
 interface InviteCode {
@@ -30,6 +32,8 @@ export default function ConfigPage() {
   const [model, setModel] = useState('claude-haiku-4-5-20251001');
   const [customModel, setCustomModel] = useState('');
   const [scrapeInterval, setScrapeInterval] = useState(3);
+  const [defaultCurrency, setDefaultCurrency] = useState('');
+  const [defaultCountry, setDefaultCountry] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -56,6 +60,8 @@ export default function ConfigPage() {
           setConfig(d.data);
           setProvider(d.data.provider);
           setScrapeInterval(d.data.scrapeInterval);
+          setDefaultCurrency(d.data.defaultCurrency || '');
+          setDefaultCountry(d.data.defaultCountry || '');
           const pc = EXTRACTION_PROVIDERS[d.data.provider];
           const knownModel = pc?.models.find((m) => m.id === d.data.model);
           if (knownModel) {
@@ -91,7 +97,13 @@ export default function ConfigPage() {
     const res = await fetch('/api/admin/config', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, model: effectiveModel, scrapeIntervalHours: scrapeInterval }),
+      body: JSON.stringify({
+        provider,
+        model: effectiveModel,
+        scrapeIntervalHours: scrapeInterval,
+        defaultCurrency: defaultCurrency.trim().toUpperCase() || null,
+        defaultCountry: defaultCountry.trim().toUpperCase() || null,
+      }),
     });
 
     const data = await res.json();
@@ -220,6 +232,30 @@ export default function ConfigPage() {
               <option key={h} value={h}>Every {h}h</option>
             ))}
           </select>
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>Default Currency (ISO 4217)</label>
+          <input
+            type="text"
+            className={styles.input}
+            placeholder="e.g. EUR, GBP — empty = auto-detect"
+            value={defaultCurrency}
+            onChange={(e) => setDefaultCurrency(e.target.value.toUpperCase())}
+            maxLength={3}
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>Default Country (ISO 3166-1)</label>
+          <input
+            type="text"
+            className={styles.input}
+            placeholder="e.g. DE, GB — empty = auto-detect"
+            value={defaultCountry}
+            onChange={(e) => setDefaultCountry(e.target.value.toUpperCase())}
+            maxLength={2}
+          />
         </div>
 
         <div className={styles.field}>

@@ -29,7 +29,7 @@ interface QueryData {
   destinationName: string;
   dateFrom: Date;
   dateTo: Date;
-  currency: string;
+  currency: string | null;
   active: boolean;
   expiresAt: Date | null;
   createdAt: Date;
@@ -246,7 +246,7 @@ export function QueryView({ id, onBack }: QueryViewProps) {
         {newDataFlash && <Text color="green" bold>{'  ● NEW DATA'}</Text>}
       </Box>
 
-      <MemoChart snapshots={available} currency={query.currency} />
+      <MemoChart snapshots={available} currency={query.currency ?? 'USD'} />
 
       <Box marginTop={1}>
         <BestPriceCard snapshots={available} />

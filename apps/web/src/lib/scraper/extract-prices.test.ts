@@ -131,6 +131,41 @@ describe('extractPrices', () => {
     expect(result.failureReason).toBe('no_json_in_response');
   });
 
+  it('includes currency detection instruction when currency is null', async () => {
+    mockExtract.mockResolvedValue({
+      content: JSON.stringify([
+        { travelDate: '2026-06-15', price: 500, currency: 'GBP', airline: 'BA', bookingUrl: '', stops: 0, duration: null, departureTime: null, seatsLeft: null },
+      ]),
+      usage: { inputTokens: 500, outputTokens: 100 },
+    });
+
+    await extractPrices('page content', 'https://flights.google.com', '2026-06-15',
+      { maxPrice: null, maxStops: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+      10, true, 'google_flights', null
+    );
+
+    const systemPrompt = mockExtract.mock.calls[0]![2] as string;
+    expect(systemPrompt).toContain('Detect the currency from the page content');
+  });
+
+  it('uses explicit currency in prompt when provided', async () => {
+    mockExtract.mockResolvedValue({
+      content: JSON.stringify([
+        { travelDate: '2026-06-15', price: 500, currency: 'EUR', airline: 'LH', bookingUrl: '', stops: 0, duration: null, departureTime: null, seatsLeft: null },
+      ]),
+      usage: { inputTokens: 500, outputTokens: 100 },
+    });
+
+    await extractPrices('page content', 'https://flights.google.com', '2026-06-15',
+      { maxPrice: null, maxStops: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+      10, true, 'google_flights', 'EUR'
+    );
+
+    const systemPrompt = mockExtract.mock.calls[0]![2] as string;
+    expect(systemPrompt).toContain('Use "EUR" as the currency code');
+    expect(systemPrompt).not.toContain('Detect the currency');
+  });
+
   it('throws when provider is unknown', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.extractionConfig.findFirst).mockResolvedValueOnce({

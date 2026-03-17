@@ -68,6 +68,19 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  if (body.defaultCurrency !== undefined) {
+    if (body.defaultCurrency !== null && (typeof body.defaultCurrency !== 'string' || !/^[A-Z]{3}$/.test(body.defaultCurrency))) {
+      return apiError('defaultCurrency must be a 3-letter ISO 4217 code or null', 400);
+    }
+    data.defaultCurrency = body.defaultCurrency;
+  }
+  if (body.defaultCountry !== undefined) {
+    if (body.defaultCountry !== null && (typeof body.defaultCountry !== 'string' || !/^[A-Z]{2}$/.test(body.defaultCountry))) {
+      return apiError('defaultCountry must be a 2-letter ISO 3166-1 code or null', 400);
+    }
+    data.defaultCountry = body.defaultCountry;
+  }
+
   const config = await prisma.extractionConfig.upsert({
     where: { id: 'singleton' },
     update: data,

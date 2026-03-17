@@ -8,7 +8,7 @@ interface Alert {
   queryId: string;
   origin: string;
   destination: string;
-  currency: string;
+  currency: string | null;
   previousMin: number;
   currentMin: number;
   drop: number;
@@ -52,10 +52,10 @@ export function PriceAlerts() {
   );
 }
 
-function formatCurrency(amount: number, currency: string): string {
+function formatCurrency(amount: number, currency: string | null): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency,
+    currency: currency ?? 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);

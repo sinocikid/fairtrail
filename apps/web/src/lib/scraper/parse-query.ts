@@ -24,7 +24,7 @@ export interface ParsedFlightQuery {
   timePreference: 'any' | 'morning' | 'afternoon' | 'evening' | 'redeye';
   cabinClass: 'economy' | 'premium_economy' | 'business' | 'first';
   tripType: 'one_way' | 'round_trip';
-  currency: string; // ISO 4217 currency code (e.g., USD, EUR, GBP)
+  currency: string | null; // ISO 4217 currency code (e.g., USD, EUR, GBP). null = auto-detect
 }
 
 export interface ParseAmbiguity {
@@ -64,7 +64,7 @@ Return ONLY valid JSON with this exact shape:
     "timePreference": "any" | "morning" | "afternoon" | "evening" | "redeye",
     "cabinClass": "economy" | "premium_economy" | "business" | "first",
     "tripType": "one_way" | "round_trip",
-    "currency": "USD"
+    "currency": null
   }
 }
 
@@ -130,7 +130,7 @@ Parsing rules:
 - Extract airline preferences if mentioned
 - Extract price caps if mentioned (e.g. "under $800")
 - If no stop preference stated, maxStops is null
-- Extract currency if mentioned (e.g. "in euros" → "EUR", "prices in pounds" → "GBP", "in CAD" → "CAD", "¥" → "JPY"). Default to "USD" if not specified. Use ISO 4217 codes.
+- Extract currency if mentioned (e.g. "in euros" → "EUR", "prices in pounds" → "GBP", "in CAD" → "CAD", "¥" → "JPY"). Set to null if not mentioned by the user. Use ISO 4217 codes.
 - Ignore trailing fragments or incomplete words at the end of the input — parse what you can
 - Today's date is ${today}
 - If this is a follow-up response to a previous question, incorporate the user's answer to refine the query
@@ -183,7 +183,7 @@ function normalizeAirports(parsed: Record<string, unknown>): ParsedFlightQuery {
     originName: origins[0]?.name ?? '',
     destination: destinations[0]?.code ?? '',
     destinationName: destinations[0]?.name ?? '',
-    currency: typeof p.currency === 'string' && p.currency ? p.currency : 'USD',
+    currency: typeof p.currency === 'string' && p.currency ? p.currency : null,
     dateFrom,
     dateTo,
     outboundDates: outboundDates?.length ? outboundDates : undefined,

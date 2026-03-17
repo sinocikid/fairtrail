@@ -39,7 +39,8 @@ export interface FlightSearchParams {
   dateTo: Date;
   cabinClass?: string;
   tripType?: string; // 'one_way' | 'round_trip'
-  currency?: string; // ISO 4217 code, defaults to USD
+  currency?: string | null; // ISO 4217 code. null = omit (Google auto-detects)
+  country?: string | null; // ISO 3166-1 alpha-2. null = omit (Google auto-detects)
 }
 
 export type NavigationSource = 'google_flights' | 'airline_direct';
@@ -51,13 +52,15 @@ export interface NavigationResult {
   source: NavigationSource;
 }
 
-function buildGoogleFlightsUrl(params: FlightSearchParams): string {
+export function buildGoogleFlightsUrl(params: FlightSearchParams): string {
   const dateFrom = params.dateFrom.toISOString().split('T')[0];
   const dateTo = params.dateTo.toISOString().split('T')[0];
   const oneWayPrefix = params.tripType === 'one_way' ? 'one+way+' : '';
 
-  const curr = params.currency || 'USD';
-  return `https://www.google.com/travel/flights?q=${oneWayPrefix}flights+from+${params.origin}+to+${params.destination}+on+${dateFrom}+to+${dateTo}&curr=${curr}&hl=en`;
+  let url = `https://www.google.com/travel/flights?q=${oneWayPrefix}flights+from+${params.origin}+to+${params.destination}+on+${dateFrom}+to+${dateTo}&hl=en`;
+  if (params.currency) url += `&curr=${params.currency}`;
+  if (params.country) url += `&gl=${params.country}`;
+  return url;
 }
 
 export async function navigateGoogleFlights(
@@ -194,12 +197,12 @@ export async function navigateFlightDetail(
     // Extract booking options from the detail view
     // Google Flights renders "Book with LOTAirline\n$662" (Airline appended to name)
     // or "Book with Mytrip\n$704" (no Airline tag for OTAs)
-    const detailCurrency = params.currency || 'USD';
+    const detailCurrency = params.currency || null;
     const result = await page.evaluate((curr) => {
       const text = document.body.innerText ?? '';
       const options: Array<{ provider: string; isAirline: boolean; price: number; currency: string }> = [];
 
-      const bookingPattern = /Book with (.+?)(?:Airline)?\n\$?([\d,]+)/g;
+      const bookingPattern = /Book with (.+?)(?:Airline)?\n[£€$¥]?\s?([\d,.]+)/g;
       let match;
       while ((match = bookingPattern.exec(text)) !== null) {
         const rawProvider = match[1]!.trim();
@@ -207,9 +210,9 @@ export async function navigateFlightDetail(
         const fullMatch = match[0]!;
         const isAirline = /Airline/.test(fullMatch);
         const provider = rawProvider.replace(/Airline$/, '').trim();
-        const price = parseInt(match[2]!.replace(/,/g, ''), 10);
+        const price = parseInt(match[2]!.replace(/[,.]/g, ''), 10);
         if (!isNaN(price) && provider.length > 0) {
-          options.push({ provider, isAirline, price, currency: curr });
+          options.push({ provider, isAirline, price, currency: curr || 'USD' });
         }
       }
 

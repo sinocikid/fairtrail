@@ -23,7 +23,7 @@ model Query {
   timePreference  String   @default("any")
   cabinClass      String   @default("economy")
   tripType        String   @default("round_trip") // 'one_way' | 'round_trip'
-  currency        String   @default("USD")
+  currency        String?
   groupId         String?  // links sibling queries created from the same multi-route search
   deleteToken     String?
   active          Boolean  @default(true)
@@ -96,6 +96,8 @@ model ExtractionConfig {
   communitySharing     Boolean   @default(false)
   communityApiKey      String?
   lastCommunitySyncAt  DateTime?
+  defaultCurrency      String?   // ISO 4217 (EUR, GBP). null = Google auto-detects
+  defaultCountry       String?   // ISO 3166-1 alpha-2 (DE, GB). null = Google auto-detects
   updatedAt            DateTime  @updatedAt
 }
 

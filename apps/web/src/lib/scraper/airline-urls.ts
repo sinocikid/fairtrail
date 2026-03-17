@@ -29,7 +29,7 @@ const AIRLINE_URL_BUILDERS: Record<string, UrlBuilder> = {
     `https://www.aa.com/booking/find-flights?type=roundTrip&origin=${p.origin}&destination=${p.destination}&departDate=${fmt(p.dateFrom)}&returnDate=${fmt(p.dateTo)}&pax=1&cabin=${cabinMap(p.cabinClass, { economy: 'ECONOMY', premium_economy: 'PREMIUM_ECONOMY', business: 'BUSINESS', first: 'FIRST' })}`,
 
   'avianca': (p) =>
-    `https://www.avianca.com/en/booking/select-flights/?origin1=${p.origin}&destination1=${p.destination}&departure1=${fmt(p.dateFrom)}&origin2=${p.destination}&destination2=${p.origin}&departure2=${fmt(p.dateTo)}&adt=1&tng=0&chd=0&inf=0&currency=USD`,
+    `https://www.avianca.com/en/booking/select-flights/?origin1=${p.origin}&destination1=${p.destination}&departure1=${fmt(p.dateFrom)}&origin2=${p.destination}&destination2=${p.origin}&departure2=${fmt(p.dateTo)}&adt=1&tng=0&chd=0&inf=0&currency=${p.currency ?? 'USD'}`,
 
   'latam': (p) =>
     `https://www.latamairlines.com/us/en/booking?origin=${p.origin}&destination=${p.destination}&outbound=${fmt(p.dateFrom)}&inbound=${fmt(p.dateTo)}&adt=1&cabin=Y`,

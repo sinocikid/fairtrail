@@ -35,7 +35,7 @@ interface ScrapeRouteParams {
   maxStops: number | null;
   preferredAirlines: string[];
   timePreference: string;
-  currency: string;
+  currency: string | null;
 }
 
 async function scrapeRoute(params: ScrapeRouteParams): Promise<PriceData[]> {

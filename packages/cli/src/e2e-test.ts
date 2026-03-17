@@ -59,7 +59,7 @@ async function main() {
     console.log('  ' + '─'.repeat(50));
     for (const f of route.flights.slice(0, 10)) {
       const stops = f.stops === 0 ? 'Nonstop' : `${f.stops} stop${f.stops > 1 ? 's' : ''}`;
-      console.log(`  ${f.airline.padEnd(16)}${formatCurrency(f.price, parsed.currency).padEnd(10)}${stops.padEnd(10)}${f.duration ?? '—'}`);
+      console.log(`  ${f.airline.padEnd(16)}${formatCurrency(f.price, parsed.currency ?? 'USD').padEnd(10)}${stops.padEnd(10)}${f.duration ?? '—'}`);
     }
     console.log('');
   }
@@ -96,7 +96,7 @@ async function main() {
   const chart = renderBrailleChart(series, {
     width: Math.min(process.stdout.columns || 80, 100),
     height: 14,
-    yLabel: formatCurrency(0, parsed.currency).charAt(0),
+    yLabel: formatCurrency(0, parsed.currency ?? 'USD').charAt(0),
     xLabels: [...new Set(allFlights.map((f) => f.travelDate))].sort().slice(0, 5),
   });
 

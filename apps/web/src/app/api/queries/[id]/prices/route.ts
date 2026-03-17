@@ -26,6 +26,7 @@ export async function GET(
       timePreference: true,
       cabinClass: true,
       tripType: true,
+      currency: true,
       expiresAt: true,
       createdAt: true,
       active: true,

@@ -60,7 +60,7 @@ interface QueryWithSnapshots {
     createdAt: Date;
     firstViewedAt: Date | null;
     groupId: string | null;
-    currency: string;
+    currency: string | null;
     scrapeInterval: number;
   };
   snapshots: Array<{

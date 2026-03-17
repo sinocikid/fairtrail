@@ -24,11 +24,11 @@ export interface QueryFilters {
 
 const DEFAULT_MAX_RESULTS = 10;
 
-function buildSystemPrompt(filters: QueryFilters, maxResults: number, source: NavigationSource = 'google_flights', currency: string = 'USD'): string {
+function buildSystemPrompt(filters: QueryFilters, maxResults: number, source: NavigationSource = 'google_flights', currency: string | null = null): string {
   const filterRules: string[] = [];
 
   if (filters.maxPrice) {
-    filterRules.push(`- ONLY include flights priced at or below $${filters.maxPrice}`);
+    filterRules.push(`- ONLY include flights priced at or below ${filters.maxPrice}`);
   }
   if (filters.maxStops !== null) {
     filterRules.push(
@@ -62,6 +62,10 @@ function buildSystemPrompt(filters: QueryFilters, maxResults: number, source: Na
     ? '- For bookingUrl, use the search URL provided (the airline website URL)'
     : "- If you can't find a direct booking URL, construct one from the Google Flights URL";
 
+  const currencyInstruction = currency
+    ? `- Use "${currency}" as the currency code for all results`
+    : `- Detect the currency from the page content (look for $, EUR, GBP, £, JPY, ¥ symbols or codes). Use the ISO 4217 code. If unclear, use "USD"`;
+
   return `You are a flight price data extractor. Given the visible text content from ${sourceDesc}, extract the best matching flight options.
 
 Return ONLY valid JSON — an array of UP TO ${maxResults} objects with this exact shape:
@@ -69,7 +73,7 @@ Return ONLY valid JSON — an array of UP TO ${maxResults} objects with this exa
   {
     "travelDate": "YYYY-MM-DD",
     "price": 623,
-    "currency": "${currency}",
+    "currency": "${currency || 'USD'}",
     "airline": "Delta",
     "bookingUrl": "https://...",
     "stops": 1,
@@ -82,6 +86,7 @@ ${filterSection}
 General rules:
 - Return at most ${maxResults} results, sorted by price (cheapest first)
 - Price must be a number (no $ sign, no commas)
+${currencyInstruction}
 ${bookingUrlRule}
 - stops: 0 for nonstop, 1 for 1 stop, etc.
 - duration: human-readable format like "8h 30m"
@@ -113,7 +118,7 @@ export async function extractPrices(
   maxResults: number = DEFAULT_MAX_RESULTS,
   resultsFound: boolean = true,
   source: NavigationSource = 'google_flights',
-  currency: string = 'USD'
+  currency: string | null = null
 ): Promise<ExtractionResult> {
   if (!resultsFound) {
     console.log(`[extract] skipped — page did not load results (source=${source})`);
