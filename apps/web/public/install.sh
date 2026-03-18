@@ -178,6 +178,27 @@ if [ -d "$HOME/fairtrail" ] && [ ! -d "$FAIRTRAIL_DIR" ]; then
   printf "  ${DIM}The new install location is ~/.fairtrail${RESET}\n"
   printf "  ${DIM}Your Docker volumes (tracked queries, price data) are preserved.${RESET}\n"
   echo ""
+
+  # Stop old containers if a compose file exists
+  if [ -f "$HOME/fairtrail/docker-compose.yml" ]; then
+    info "Stopping old containers..."
+    $DC -f "$HOME/fairtrail/docker-compose.yml" down 2>/dev/null || true
+  fi
+
+  # Clean up old directory
+  if [ "${FAIRTRAIL_YES:-}" = "1" ]; then
+    mv "$HOME/fairtrail" "$HOME/fairtrail.old-backup"
+    ok "Moved ~/fairtrail to ~/fairtrail.old-backup"
+  else
+    read -rp "  Remove old ~/fairtrail directory? [Y/n] " REMOVE_OLD < /dev/tty
+    if [[ ! "$REMOVE_OLD" =~ ^[Nn]$ ]]; then
+      mv "$HOME/fairtrail" "$HOME/fairtrail.old-backup"
+      ok "Moved ~/fairtrail to ~/fairtrail.old-backup"
+    else
+      warn "Old directory left at ~/fairtrail (you can remove it later)"
+    fi
+  fi
+  echo ""
 fi
 
 # ---------------------------------------------------------------------------
