@@ -19,4 +19,14 @@ jobs:
       - run: npx prisma generate --schema=apps/web/prisma/schema.prisma
       - run: npm run lint
       - run: npm run typecheck
+      - run: npx vitest run --reporter=verbose
+        working-directory: apps/web
       - run: npm run build
+      - run: bash scripts/install-flow-test.sh
+
+  install-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f scripts/Dockerfile.install-test -t fairtrail-install-test .
+      - run: docker run --rm fairtrail-install-test
