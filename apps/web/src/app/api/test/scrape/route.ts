@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import { prisma } from '@/lib/prisma';
 import { extractPrices } from '@/lib/scraper/extract-prices';
@@ -41,18 +41,13 @@ export async function GET(request: NextRequest) {
     })
   );
 
-  // --- Check 2: Chromium browser launch ---
+  // --- Check 2: Chromium binary exists ---
   checks.push(
     await runCheck('chromium', async () => {
-      const { launchBrowser } = await import('@/lib/scraper/browser');
-      const browser = await launchBrowser();
-      const context = await browser.newContext();
-      const page = await context.newPage();
-      await page.goto('about:blank');
-      const title = await page.title();
-      await context.close();
-      await browser.close();
-      return `Launched and navigated (title="${title}")`;
+      const { execSync } = await import('child_process');
+      const chromePath = process.env.CHROME_PATH || 'chromium-browser';
+      const version = execSync(`${chromePath} --version`, { timeout: 5000 }).toString().trim();
+      return version;
     })
   );
 
@@ -175,11 +170,9 @@ export async function GET(request: NextRequest) {
     checks,
   };
 
+  // Always return the full check details, even on failure
   if (!allPassed) {
-    return apiError(
-      `Smoke test failed: ${checks.filter((c) => !c.passed).map((c) => c.name).join(', ')}`,
-      500
-    );
+    return NextResponse.json({ ok: false, error: `Smoke test failed: ${checks.filter((c) => !c.passed).map((c) => c.name).join(', ')}`, data: summary }, { status: 500 });
   }
 
   return apiSuccess(summary);

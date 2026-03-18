@@ -5,6 +5,15 @@
 # instead of a real LLM provider.
 
 services:
+  # Override host ports to avoid conflicts with a running dev stack
+  db:
+    ports: !override
+      - "127.0.0.1:5499:5432"
+
+  redis:
+    ports: !override
+      - "127.0.0.1:6399:6379"
+
   llmock:
     image: node:22-alpine
     restart: "no"
@@ -14,7 +23,7 @@ services:
     environment:
       LLMOCK_PORT: "19876"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:19876/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:19876/health"]
       interval: 2s
       timeout: 2s
       retries: 10
@@ -27,7 +36,7 @@ services:
         condition: service_healthy
     environment:
       # Point Anthropic SDK at the mock server
-      ANTHROPIC_BASE_URL: http://llmock:19876/v1
+      ANTHROPIC_BASE_URL: http://llmock:19876
       ANTHROPIC_API_KEY: test-smoke-key
       # Ensure the provider is anthropic for deterministic behavior
       NODE_ENV: production

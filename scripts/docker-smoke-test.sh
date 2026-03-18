@@ -51,6 +51,12 @@ cleanup() {
   info "Tearing down..."
   CRON_SECRET="$CRON_SECRET" HOST_PORT="$HOST_PORT" \
     docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
+  # Restore original .env if it existed, otherwise remove the temp one
+  if [ "${ENV_EXISTED:-false}" = true ] && [ -f "$REPO_ROOT/.env.smoke-backup" ]; then
+    mv "$REPO_ROOT/.env.smoke-backup" "$REPO_ROOT/.env"
+  else
+    rm -f "$REPO_ROOT/.env" "$REPO_ROOT/.env.smoke-backup"
+  fi
 }
 
 trap cleanup EXIT
@@ -68,8 +74,11 @@ fi
 # --- Step 2: Start stack ---
 info "Starting stack (db + redis + llmock + web) on port $HOST_PORT..."
 export CRON_SECRET HOST_PORT
-# Write a minimal .env so docker-compose env_file doesn't fail
-ENV_FILE="$REPO_ROOT/.env.smoke-test"
+# Write .env so docker-compose env_file directive works
+# (the base docker-compose.yml requires env_file: .env)
+ENV_FILE="$REPO_ROOT/.env"
+ENV_EXISTED=false
+[ -f "$ENV_FILE" ] && ENV_EXISTED=true && cp "$ENV_FILE" "$ENV_FILE.smoke-backup"
 cat > "$ENV_FILE" <<ENVEOF
 CRON_SECRET=$CRON_SECRET
 POSTGRES_PASSWORD=smoketest
@@ -79,7 +88,7 @@ ENVEOF
 
 # Use the smoke test .env
 CRON_SECRET="$CRON_SECRET" HOST_PORT="$HOST_PORT" POSTGRES_PASSWORD=smoketest \
-  docker compose $COMPOSE_FILES --env-file "$ENV_FILE" up -d
+  docker compose $COMPOSE_FILES up -d
 
 # --- Step 3: Wait for health ---
 info "Waiting for /api/health (up to ${HEALTH_TIMEOUT}s)..."
@@ -89,7 +98,7 @@ until curl -sf "http://localhost:${HOST_PORT}/api/health" >/dev/null 2>&1; do
   if [ "$SECONDS_WAITED" -ge "$HEALTH_TIMEOUT" ]; then
     fail "Health check timed out after ${HEALTH_TIMEOUT}s"
     info "Container logs:"
-    docker compose $COMPOSE_FILES --env-file "$ENV_FILE" logs web --tail 50
+    docker compose $COMPOSE_FILES logs web --tail 50
     fatal "App did not become healthy"
   fi
   sleep 2
@@ -105,7 +114,7 @@ RESPONSE=$(curl -sf -w "\n%{http_code}" \
     fail "Test endpoint request failed"
     info "Response: $RESPONSE"
     info "Container logs:"
-    docker compose $COMPOSE_FILES --env-file "$ENV_FILE" logs web --tail 50
+    docker compose $COMPOSE_FILES logs web --tail 50
     fatal "Smoke test endpoint unreachable or errored"
   }
 
@@ -116,7 +125,7 @@ if [ "$HTTP_CODE" != "200" ]; then
   fail "Test endpoint returned HTTP $HTTP_CODE"
   info "Body: $BODY"
   info "Container logs:"
-  docker compose $COMPOSE_FILES --env-file "$ENV_FILE" logs web --tail 50
+  docker compose $COMPOSE_FILES logs web --tail 50
   exit 1
 fi
 
@@ -142,8 +151,5 @@ if command -v jq >/dev/null 2>&1; then
   echo ""
   info "Total: ${TOTAL_MS}ms"
 fi
-
-# Clean up the temp .env
-rm -f "$ENV_FILE"
 
 exit 0
