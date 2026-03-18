@@ -265,24 +265,32 @@ fi
 # Ensure ~/.local/bin is in PATH
 if ! echo "$PATH" | tr ':' '\n' | grep -qx "$INSTALL_BIN"; then
   EXPORT_LINE='export PATH="$HOME/.local/bin:$PATH"'
-  SHELL_PROFILE=""
+  PATCHED=false
 
-  # Find the right shell profile to patch
+  patch_profile() {
+    local file="$1"
+    if [ -f "$file" ] && ! grep -qF '.local/bin' "$file" 2>/dev/null; then
+      printf '\n# Added by Fairtrail installer\n%s\n' "$EXPORT_LINE" >> "$file"
+      ok "Added $INSTALL_BIN to PATH in $file"
+      PATCHED=true
+    fi
+  }
+
   if [ -n "${ZSH_VERSION:-}" ] || [ "$(basename "${SHELL:-}")" = "zsh" ]; then
-    [ -f "$HOME/.zshrc" ] && SHELL_PROFILE="$HOME/.zshrc"
-  elif [ -f "$HOME/.bashrc" ]; then
-    SHELL_PROFILE="$HOME/.bashrc"
-  elif [ -f "$HOME/.profile" ]; then
-    SHELL_PROFILE="$HOME/.profile"
+    patch_profile "$HOME/.zshrc"
+  else
+    # Patch .bashrc for interactive shells
+    patch_profile "$HOME/.bashrc"
+    # ALSO patch .profile (or .bash_profile) for SSH login shells.
+    # SSH sessions source .profile, not .bashrc, so both are needed.
+    if [ -f "$HOME/.bash_profile" ]; then
+      patch_profile "$HOME/.bash_profile"
+    else
+      patch_profile "$HOME/.profile"
+    fi
   fi
 
-  if [ -n "$SHELL_PROFILE" ]; then
-    # Only add if not already present
-    if ! grep -qF '.local/bin' "$SHELL_PROFILE" 2>/dev/null; then
-      printf '\n# Added by Fairtrail installer\n%s\n' "$EXPORT_LINE" >> "$SHELL_PROFILE"
-      ok "Added $INSTALL_BIN to PATH in $SHELL_PROFILE"
-    fi
-  else
+  if [ "$PATCHED" = false ]; then
     warn "$INSTALL_BIN is not in your PATH"
     printf "  Add this to your shell profile:\n"
     printf "  ${BOLD}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}\n"
