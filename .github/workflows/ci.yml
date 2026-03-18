@@ -30,3 +30,15 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -f scripts/Dockerfile.install-test -t fairtrail-install-test .
       - run: docker run --rm fairtrail-install-test
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t fairtrail-test:latest .
+      - run: bash scripts/docker-integration-test.sh --no-build
+      - name: Browser smoke tests
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+          bash scripts/browser-smoke-test.sh http://localhost:3399
