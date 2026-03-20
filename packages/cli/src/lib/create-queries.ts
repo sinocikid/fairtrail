@@ -76,7 +76,7 @@ export async function createTrackedQueries(
           price: f.price,
           currency: f.currency || parsed.currency || 'USD',
           airline: f.airline,
-          bookingUrl: f.bookingUrl,
+          bookingUrl: f.bookingUrl || '',
           stops: f.stops ?? 0,
           duration: f.duration ?? null,
         })),

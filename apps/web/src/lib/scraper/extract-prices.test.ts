@@ -97,6 +97,21 @@ describe('extractPrices', () => {
     expect(result.failureReason).toBe('all_filtered_out');
   });
 
+  it('coerces null bookingUrl to empty string', async () => {
+    mockExtract.mockResolvedValue({
+      content: JSON.stringify([
+        { travelDate: '2026-06-15', price: 400, currency: 'USD', airline: 'easyJet', bookingUrl: null, stops: 0, duration: '1h 45m', departureTime: '8:00 AM', seatsLeft: null },
+        { travelDate: '2026-06-15', price: 350, currency: 'USD', airline: 'KLM', stops: 1, duration: '3h', departureTime: '10:00 AM', seatsLeft: null },
+      ]),
+      usage: { inputTokens: 300, outputTokens: 80 },
+    });
+
+    const result = await extractPrices('page content', 'https://flights.google.com', '2026-06-15');
+    expect(result.prices).toHaveLength(2);
+    expect(result.prices[0]!.bookingUrl).toBe('');
+    expect(result.prices[1]!.bookingUrl).toBe('');
+  });
+
   it('returns all_filtered_out when all entries invalid', async () => {
     mockExtract.mockResolvedValue({
       content: JSON.stringify([
@@ -119,6 +134,20 @@ describe('extractPrices', () => {
     const result = await extractPrices('page content', 'https://flights.google.com', '2026-06-15');
     expect(result.prices).toEqual([]);
     expect(result.failureReason).toBe('empty_extraction');
+  });
+
+  it('coerces null bookingUrl to empty string instead of passing null through', async () => {
+    mockExtract.mockResolvedValue({
+      content: JSON.stringify([
+        { travelDate: '2026-06-15', price: 350, currency: 'USD', airline: 'Delta', bookingUrl: null, stops: 0, duration: '5h', departureTime: null, seatsLeft: null },
+      ]),
+      usage: { inputTokens: 200, outputTokens: 50 },
+    });
+
+    const result = await extractPrices('page content', 'https://flights.google.com', '2026-06-15');
+    expect(result.prices).toHaveLength(1);
+    expect(result.prices[0]!.bookingUrl).toBe('');
+    expect(result.failureReason).toBeUndefined();
   });
 
   it('returns no_json_in_response when llm returns no array', async () => {

@@ -13,7 +13,7 @@ interface Snapshot {
   price: number;
   currency: string;
   airline: string;
-  bookingUrl: string;
+  bookingUrl: string | null;
   stops: number;
   duration: string | null;
   flightId: string | null;

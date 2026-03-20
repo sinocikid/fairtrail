@@ -7,7 +7,7 @@ interface Snapshot {
   price: number;
   currency: string;
   airline: string;
-  bookingUrl: string;
+  bookingUrl: string | null;
 }
 
 interface Props {
@@ -19,7 +19,7 @@ interface DayData {
   date: string;
   minPrice: number;
   airline: string;
-  bookingUrl: string;
+  bookingUrl: string | null;
 }
 
 export function PriceCalendar({ snapshots, currency }: Props) {
@@ -68,7 +68,7 @@ export function PriceCalendar({ snapshots, currency }: Props) {
           return (
             <a
               key={d.date}
-              href={d.bookingUrl}
+              href={d.bookingUrl || undefined}
               target="_blank"
               rel="noopener noreferrer"
               className={`${styles.cell} ${isMin ? styles.cellBest : ''}`}
