@@ -96,10 +96,14 @@ install_docker_linux() {
   exit 0
 }
 
-if ! command -v docker &>/dev/null; then
+if command -v docker &>/dev/null; then
+  CONTAINER_CMD=docker
+elif command -v podman &>/dev/null; then
+  CONTAINER_CMD=podman
+else
   case "$OS" in
     macos)
-      fail "Docker Desktop is required.\n\n  Install it from: ${BOLD}https://docs.docker.com/desktop/setup/install/mac-install/${RESET}\n\n  Then re-run: ${BOLD}curl -fsSL https://fairtrail.org/install.sh | bash${RESET}"
+      fail "Docker Desktop or Podman is required.\n\n  Docker: ${BOLD}https://docs.docker.com/desktop/setup/install/mac-install/${RESET}\n  Podman: ${BOLD}https://podman.io/docs/installation${RESET}\n\n  Then re-run: ${BOLD}curl -fsSL https://fairtrail.org/install.sh | bash${RESET}"
       ;;
     linux|wsl)
       warn "Docker is not installed."
@@ -108,42 +112,53 @@ if ! command -v docker &>/dev/null; then
       if [[ ! "$confirm" =~ ^[Nn]$ ]]; then
         install_docker_linux
       else
-        fail "Docker is required. Install from https://docs.docker.com/engine/install/"
+        fail "Docker or Podman is required.\n  Docker: https://docs.docker.com/engine/install/\n  Podman: https://podman.io/docs/installation"
       fi
       ;;
     *)
-      fail "Docker is required. Install from https://docs.docker.com/get-docker/"
+      fail "Docker or Podman is required.\n  Docker: https://docs.docker.com/get-docker/\n  Podman: https://podman.io/docs/installation"
       ;;
   esac
 fi
 
-if ! docker info &>/dev/null 2>&1; then
-  case "$OS" in
-    macos)
-      fail "Docker Desktop is not running.\n\n  Open Docker Desktop from Applications, wait for it to start, then re-run:\n  ${BOLD}curl -fsSL https://fairtrail.org/install.sh | bash${RESET}"
-      ;;
-    linux|wsl)
-      warn "Docker daemon is not running."
-      printf "  ${DIM}Trying to start it...${RESET}\n"
-      if command -v sudo &>/dev/null; then
-        sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
-        sleep 2
-      fi
-      if ! docker info &>/dev/null 2>&1; then
-        fail "Could not start Docker.\n\n  Start it manually: ${BOLD}sudo systemctl start docker${RESET}\n  Then re-run this installer."
-      fi
-      ok "Docker daemon started"
-      ;;
-    *)
-      fail "Docker is not running. Start Docker and try again."
-      ;;
-  esac
+if [ "$CONTAINER_CMD" = "docker" ]; then
+  if ! docker info &>/dev/null 2>&1; then
+    case "$OS" in
+      macos)
+        fail "Docker Desktop is not running.\n\n  Open Docker Desktop from Applications, wait for it to start, then re-run:\n  ${BOLD}curl -fsSL https://fairtrail.org/install.sh | bash${RESET}"
+        ;;
+      linux|wsl)
+        warn "Docker daemon is not running."
+        printf "  ${DIM}Trying to start it...${RESET}\n"
+        if command -v sudo &>/dev/null; then
+          sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
+          sleep 2
+        fi
+        if ! docker info &>/dev/null 2>&1; then
+          fail "Could not start Docker.\n\n  Start it manually: ${BOLD}sudo systemctl start docker${RESET}\n  Then re-run this installer."
+        fi
+        ok "Docker daemon started"
+        ;;
+      *)
+        fail "Docker is not running. Start Docker and try again."
+        ;;
+    esac
+  fi
+  ok "Docker is running"
+else
+  ok "Podman is available"
 fi
 
-ok "Docker is running"
-
-# Detect docker compose command (v2 plugin vs v1 standalone)
-if docker compose version &>/dev/null 2>&1; then
+# Detect compose command based on detected container runtime
+if [ "$CONTAINER_CMD" = "podman" ]; then
+  if podman compose version &>/dev/null 2>&1; then
+    DC="podman compose"
+  elif command -v podman-compose &>/dev/null; then
+    DC="podman-compose"
+  else
+    fail "podman compose is required.\n\n  Install podman-compose: ${BOLD}https://github.com/containers/podman-compose${RESET}"
+  fi
+elif docker compose version &>/dev/null 2>&1; then
   DC="docker compose"
 elif command -v docker-compose &>/dev/null; then
   DC="docker-compose"
@@ -215,6 +230,12 @@ fi
 # ---------------------------------------------------------------------------
 mkdir -p "$FAIRTRAIL_DIR"
 
+EXTRA_HOSTS_BLOCK=""
+if [ "$CONTAINER_CMD" != "podman" ]; then
+  EXTRA_HOSTS_BLOCK='    extra_hosts:
+      - "host.docker.internal:host-gateway"'
+fi
+
 cat > "$FAIRTRAIL_DIR/docker-compose.yml" << COMPOSE
 services:
   db:
@@ -262,8 +283,7 @@ services:
       CHROME_PATH: /usr/bin/chromium-browser
       NODE_ENV: production
       SELF_HOSTED: "true"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+$EXTRA_HOSTS_BLOCK
     volumes:
       - app-data:/app/data
       - cli-cache:/home/node/.npm-global
@@ -366,9 +386,11 @@ if curl -sf http://localhost:11434/api/tags >/dev/null 2>&1; then
   OLLAMA_MODEL_COUNT=$(echo "$OLLAMA_MODELS" | grep -c . 2>/dev/null || echo 0)
   ok "Ollama detected — ${OLLAMA_MODEL_COUNT} model(s) installed locally"
 
-  # Docker-compatible host — host.docker.internal works on all platforms
-  # (macOS/WSL via Docker Desktop, Linux via extra_hosts in compose)
-  OLLAMA_HOST_VAL="http://host.docker.internal:11434"
+  if [ "$CONTAINER_CMD" = "podman" ]; then
+    OLLAMA_HOST_VAL="http://host.containers.internal:11434"
+  else
+    OLLAMA_HOST_VAL="http://host.docker.internal:11434"
+  fi
 fi
 
 HAS_CLI_OR_LOCAL=false

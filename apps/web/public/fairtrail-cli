@@ -33,12 +33,31 @@ fi
 
 cd "$FAIRTRAIL_DIR"
 
+# Detect container runtime (prefer docker, fall back to podman)
+if command -v docker &>/dev/null; then
+  CONTAINER_CMD=docker
+elif command -v podman &>/dev/null; then
+  CONTAINER_CMD=podman
+else
+  printf "${RED}${BOLD}✗${RESET} Docker or Podman is required.\n"
+  exit 1
+fi
+
 # Resolve override file if it exists
 COMPOSE_FILES="-f docker-compose.yml"
 [ -f "docker-compose.override.yml" ] && COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.override.yml"
 
-# Detect docker compose command (v2 plugin vs v1 standalone)
-if docker compose version &>/dev/null 2>&1; then
+# Detect compose command based on detected container runtime
+if [ "$CONTAINER_CMD" = "podman" ]; then
+  if podman compose version &>/dev/null 2>&1; then
+    _DC="podman compose"
+  elif command -v podman-compose &>/dev/null; then
+    _DC="podman-compose"
+  else
+    printf "${RED}${BOLD}✗${RESET} podman compose is required. Install: https://github.com/containers/podman-compose\n"
+    exit 1
+  fi
+elif docker compose version &>/dev/null 2>&1; then
   _DC="docker compose"
 elif command -v docker-compose &>/dev/null; then
   _DC="docker-compose"
@@ -85,7 +104,7 @@ show_tracking_info() {
 }
 
 cmd_start_foreground() {
-  if ! docker info &>/dev/null 2>&1; then
+  if [ "$CONTAINER_CMD" = "docker" ] && ! docker info &>/dev/null 2>&1; then
     printf "${RED}${BOLD}✗${RESET} Docker is not running. Start Docker Desktop and try again.\n"
     exit 1
   fi
@@ -128,7 +147,7 @@ cmd_start_foreground() {
 }
 
 cmd_start_background() {
-  if ! docker info &>/dev/null 2>&1; then
+  if [ "$CONTAINER_CMD" = "docker" ] && ! docker info &>/dev/null 2>&1; then
     printf "${RED}${BOLD}✗${RESET} Docker is not running. Start Docker Desktop and try again.\n"
     exit 1
   fi

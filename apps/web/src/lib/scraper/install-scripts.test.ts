@@ -83,6 +83,70 @@ describe('install.sh', () => {
   it('includes cli-cache volume for persisting CLI installs', () => {
     expect(INSTALL_SH).toContain('cli-cache:/home/node/.npm-global');
   });
+
+  it('detects Podman as fallback when Docker is absent', () => {
+    expect(INSTALL_SH).toContain('command -v podman');
+    expect(INSTALL_SH).toContain('CONTAINER_CMD=podman');
+  });
+
+  it('uses $CONTAINER_CMD to select compose command', () => {
+    expect(INSTALL_SH).toContain('podman compose');
+    expect(INSTALL_SH).toContain('podman-compose');
+  });
+
+  it('uses host.containers.internal for Podman Ollama host', () => {
+    expect(INSTALL_SH).toContain('host.containers.internal:11434');
+  });
+
+  it('conditionally omits extra_hosts for Podman in generated compose', () => {
+    expect(INSTALL_SH).toContain('EXTRA_HOSTS_BLOCK');
+    expect(INSTALL_SH).toContain('CONTAINER_CMD" != "podman"');
+  });
+
+  it('detection logic: picks docker when docker exists, podman as fallback', () => {
+    // Extract the detection block and verify the branching structure
+    const lines = INSTALL_SH.split('\n');
+    const dockerCheckIdx = lines.findIndex((l) => l.includes('command -v docker'));
+    const podmanCheckIdx = lines.findIndex((l) => l.includes('command -v podman'));
+    expect(dockerCheckIdx).toBeGreaterThan(-1);
+    expect(podmanCheckIdx).toBeGreaterThan(-1);
+    // Docker must be checked BEFORE podman (if/elif structure)
+    expect(dockerCheckIdx).toBeLessThan(podmanCheckIdx);
+    // The docker check must set CONTAINER_CMD=docker
+    const dockerSetIdx = lines.findIndex((l) => l.includes('CONTAINER_CMD=docker'));
+    expect(dockerSetIdx).toBeGreaterThan(dockerCheckIdx);
+    expect(dockerSetIdx).toBeLessThan(podmanCheckIdx);
+  });
+
+  it('EXTRA_HOSTS_BLOCK is set before the heredoc and used inside it', () => {
+    const lines = INSTALL_SH.split('\n');
+    const blockSetIdx = lines.findIndex((l) => l.includes('EXTRA_HOSTS_BLOCK='));
+    const heredocIdx = lines.findIndex((l) => l.includes('<< COMPOSE'));
+    const blockUseIdx = lines.findIndex((l) => l.includes('$EXTRA_HOSTS_BLOCK'));
+    expect(blockSetIdx).toBeGreaterThan(-1);
+    expect(heredocIdx).toBeGreaterThan(-1);
+    expect(blockUseIdx).toBeGreaterThan(-1);
+    // Set before heredoc, used inside heredoc
+    expect(blockSetIdx).toBeLessThan(heredocIdx);
+    expect(blockUseIdx).toBeGreaterThan(heredocIdx);
+  });
+
+  it('Podman path sets OLLAMA_HOST to host.containers.internal, Docker to host.docker.internal', () => {
+    const lines = INSTALL_SH.split('\n');
+    const podmanOllamaIdx = lines.findIndex((l) =>
+      l.includes('host.containers.internal:11434')
+    );
+    const dockerOllamaIdx = lines.findIndex((l) =>
+      l.includes('host.docker.internal:11434')
+    );
+    expect(podmanOllamaIdx).toBeGreaterThan(-1);
+    expect(dockerOllamaIdx).toBeGreaterThan(-1);
+    // Both must be inside a CONTAINER_CMD conditional
+    const beforePodman = lines.slice(Math.max(0, podmanOllamaIdx - 3), podmanOllamaIdx).join('\n');
+    expect(beforePodman).toContain('podman');
+    const beforeDocker = lines.slice(Math.max(0, dockerOllamaIdx - 3), dockerOllamaIdx).join('\n');
+    expect(beforeDocker).toContain('else');
+  });
 });
 
 describe('fairtrail-cli', () => {
@@ -114,6 +178,32 @@ describe('fairtrail-cli', () => {
     for (const line of installLines) {
       expect(line, `Line references | sh: ${line.trim()}`).not.toMatch(
         /\| sh\b/
+      );
+    }
+  });
+
+  it('detects Podman as fallback when Docker is absent', () => {
+    expect(CLI_SH).toContain('command -v podman');
+    expect(CLI_SH).toContain('CONTAINER_CMD=podman');
+  });
+
+  it('uses $CONTAINER_CMD to select compose command', () => {
+    expect(CLI_SH).toContain('podman compose');
+    expect(CLI_SH).toContain('podman-compose');
+  });
+
+  it('skips docker info check when using Podman', () => {
+    // Both start functions must gate docker info behind CONTAINER_CMD=docker check
+    const dockerInfoChecks = CLI_SH.split('\n').filter(
+      (l) => l.includes('docker info') && !l.startsWith('#')
+    );
+    for (const line of dockerInfoChecks) {
+      const idx = CLI_SH.split('\n').indexOf(line);
+      const context = CLI_SH.split('\n')
+        .slice(Math.max(0, idx - 1), idx + 1)
+        .join('\n');
+      expect(context, `docker info not gated: ${line.trim()}`).toContain(
+        'CONTAINER_CMD'
       );
     }
   });

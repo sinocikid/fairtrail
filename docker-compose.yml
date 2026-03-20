@@ -53,6 +53,7 @@ services:
       NODE_ENV: production
       SELF_HOSTED: "true"
     extra_hosts:
+      # Podman users: host.containers.internal resolves automatically — no extra_hosts needed
       - "host.docker.internal:host-gateway"
     volumes:
       - app-data:/app/data
