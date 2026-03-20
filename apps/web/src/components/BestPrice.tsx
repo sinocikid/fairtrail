@@ -5,7 +5,7 @@ interface Snapshot {
   price: number;
   currency: string;
   airline: string;
-  bookingUrl: string;
+  bookingUrl: string | null;
   stops: number;
   duration: string | null;
   scrapedAt: string;
@@ -32,14 +32,16 @@ export function BestPrice({ snapshots }: { snapshots: Snapshot[] }) {
             {best.duration && ` · ${best.duration}`}
           </span>
         </div>
-        <a
-          href={best.bookingUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.bookButton}
-        >
-          Book on {best.airline}
-        </a>
+        {best.bookingUrl && (
+          <a
+            href={best.bookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.bookButton}
+          >
+            Book on {best.airline}
+          </a>
+        )}
       </div>
     </div>
   );

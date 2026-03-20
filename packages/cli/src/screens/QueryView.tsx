@@ -15,7 +15,7 @@ interface Snapshot {
   airline: string;
   stops: number;
   duration: string | null;
-  bookingUrl: string;
+  bookingUrl: string | null;
   travelDate: Date;
   scrapedAt: Date;
   status: string;

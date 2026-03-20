@@ -15,7 +15,7 @@ interface RouteInput {
     price: number;
     currency?: string;
     airline: string;
-    bookingUrl: string;
+    bookingUrl: string | null;
     stops?: number;
     duration?: string | null;
   }>;
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
           price: f.price,
           currency: f.currency || 'USD',
           airline: f.airline,
-          bookingUrl: f.bookingUrl,
+          bookingUrl: f.bookingUrl || '',
           stops: f.stops ?? 0,
           duration: f.duration ?? null,
         })),

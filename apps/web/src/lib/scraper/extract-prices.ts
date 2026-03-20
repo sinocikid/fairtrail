@@ -7,7 +7,7 @@ export interface PriceData {
   price: number;
   currency: string;
   airline: string;
-  bookingUrl: string;
+  bookingUrl: string | null;
   stops: number;
   duration: string | null;
   departureTime: string | null; // e.g. "10:25 AM"
@@ -171,6 +171,11 @@ ${html}`;
   if (raw.length === 0) {
     console.log(`[extract] FAIL empty_extraction — LLM returned [] (${result.usage.inputTokens} input tokens)`);
     return { prices: [], usage: result.usage, failureReason: 'empty_extraction' };
+  }
+
+  // Coerce null bookingUrl to empty string (LLMs frequently return null)
+  for (const p of raw) {
+    if (!p.bookingUrl) p.bookingUrl = '';
   }
 
   // Filter out obviously invalid entries

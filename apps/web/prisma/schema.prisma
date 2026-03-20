@@ -51,7 +51,7 @@ model PriceSnapshot {
   price             Float
   currency          String   @default("USD")
   airline           String
-  bookingUrl        String
+  bookingUrl        String?
   stops             Int      @default(0)
   duration          String?
   flightId          String?  // stable identity: airline-HHMM-origin-dest-date
