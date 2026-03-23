@@ -21,6 +21,8 @@ services:
 
   web:
     image: fairtrail-test:latest
+    init: true
+    ipc: host
     depends_on:
       db:
         condition: service_healthy

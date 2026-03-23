@@ -39,6 +39,8 @@ services:
   web:
     build: .
     restart: unless-stopped
+    init: true
+    ipc: host
     depends_on:
       db:
         condition: service_healthy
