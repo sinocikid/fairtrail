@@ -22,6 +22,8 @@ services:
   web:
     image: ghcr.io/affromero/fairtrail:latest
     restart: unless-stopped
+    init: true
+    ipc: host
     depends_on:
       - db
       - redis
