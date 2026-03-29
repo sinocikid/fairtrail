@@ -350,11 +350,9 @@ Google Flights has an undocumented internal API (`GetShoppingResults`, `GetCalen
 
 Both approaches share the same fundamental risk: Google can break either one at any time. DOM changes break Playwright selectors; internal response structure changes break array-index parsing. Neither has a contract. We'd rather depend on the stable, public-facing UI than on undocumented internal array positions where airline data lives at `fl[22][0]` and prices at `data[1][0][-1]`.
 
-**What we learned from fli and adopted:**
-- Round-trip prices from Google are pre-combined (outbound leg shows full RT price) -- our LLM extraction prompt accounts for this
-- Google rate-limits at ~30 sustained requests/IP -- Fairtrail's cron frequency stays well under this
-- The `GetExploreDestinations` endpoint exists for "cheapest flights from X" -- potential future feature
-- Position `[1][28]` in the internal API controls Basic Economy filtering -- useful reference if we ever need it
+**Use Fairtrail if** you want to track prices over time, see trends, get booking links, and share charts. You care about data completeness more than speed.
+
+**Use [fli](https://github.com/punitarani/fli) if** you want instant, programmatic flight lookups from scripts or agents. You don't need booking URLs, price history, or a UI -- just fast structured results.
 
 ## Related Projects
 
