@@ -41,7 +41,6 @@ export default function ConfigPage() {
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [vpnProvider, setVpnProvider] = useState('none');
   const [vpnCountries, setVpnCountries] = useState<string[]>([]);
-  const [vpnCountryInput, setVpnCountryInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 

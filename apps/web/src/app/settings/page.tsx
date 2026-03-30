@@ -31,7 +31,6 @@ export default function SettingsPage() {
   const [defaultCountry, setDefaultCountry] = useState('');
   const [vpnProvider, setVpnProvider] = useState('none');
   const [vpnCountries, setVpnCountries] = useState<string[]>([]);
-  const [vpnCountryInput, setVpnCountryInput] = useState('');
   const [vpnActivationCode, setVpnActivationCode] = useState('');
   const [vpnCodeSaving, setVpnCodeSaving] = useState(false);
   const [vpnCodeMessage, setVpnCodeMessage] = useState('');
@@ -558,3 +557,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+// build 1774897677
