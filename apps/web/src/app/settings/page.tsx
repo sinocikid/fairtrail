@@ -35,6 +35,7 @@ export default function SettingsPage() {
   const [vpnCodeSaving, setVpnCodeSaving] = useState(false);
   const [vpnCodeMessage, setVpnCodeMessage] = useState('');
   const [hasVpnCode, setHasVpnCode] = useState(false);
+  const [vpnLive, setVpnLive] = useState<{ configured: boolean; sidecarRunning: boolean; ready: boolean } | null>(null);
   const [detectedProviders, setDetectedProviders] = useState<string[]>([]);
   const [configuringProvider, setConfiguringProvider] = useState<string | null>(null);
   const [providerKeyInput, setProviderKeyInput] = useState('');
@@ -76,6 +77,11 @@ export default function SettingsPage() {
     fetch('/api/setup/status')
       .then((r) => r.json())
       .then((d) => { setDetectedProviders(d.detectedProviders ?? d.data?.detectedProviders ?? []); })
+      .catch(() => {});
+
+    fetch('/api/vpn/status')
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setVpnLive(d.data); })
       .catch(() => {});
 
     fetch('/api/admin/config')
@@ -360,27 +366,46 @@ export default function SettingsPage() {
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label}>Default Currency (ISO 4217)</label>
-            <input
-              type="text"
-              className={styles.input}
-              placeholder="e.g. EUR, GBP — empty = auto-detect"
-              value={defaultCurrency}
-              onChange={(e) => setDefaultCurrency(e.target.value.toUpperCase())}
-              maxLength={3}
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label className={styles.label}>Default Country (ISO 3166-1)</label>
-            <input
-              type="text"
-              className={styles.input}
-              placeholder="e.g. DE, GB — empty = auto-detect"
-              value={defaultCountry}
-              onChange={(e) => setDefaultCountry(e.target.value.toUpperCase())}
-              maxLength={2}
-            />
+            <label className={styles.label}>Default Currency</label>
+            <select
+              className={styles.select}
+              value={['', 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'INR', 'MXN', 'BRL', 'KRW', 'SGD', 'HKD', 'SEK', 'NOK', 'DKK', 'NZD', 'THB', 'COP', 'ARS'].includes(defaultCurrency) ? defaultCurrency : '_custom'}
+              onChange={(e) => setDefaultCurrency(e.target.value === '_custom' ? '' : e.target.value)}
+            >
+              <option value="">Auto-detect</option>
+              <option value="USD">USD - US Dollar</option>
+              <option value="EUR">EUR - Euro</option>
+              <option value="GBP">GBP - British Pound</option>
+              <option value="JPY">JPY - Japanese Yen</option>
+              <option value="CAD">CAD - Canadian Dollar</option>
+              <option value="AUD">AUD - Australian Dollar</option>
+              <option value="CHF">CHF - Swiss Franc</option>
+              <option value="CNY">CNY - Chinese Yuan</option>
+              <option value="INR">INR - Indian Rupee</option>
+              <option value="MXN">MXN - Mexican Peso</option>
+              <option value="BRL">BRL - Brazilian Real</option>
+              <option value="KRW">KRW - South Korean Won</option>
+              <option value="SGD">SGD - Singapore Dollar</option>
+              <option value="HKD">HKD - Hong Kong Dollar</option>
+              <option value="SEK">SEK - Swedish Krona</option>
+              <option value="NOK">NOK - Norwegian Krone</option>
+              <option value="DKK">DKK - Danish Krone</option>
+              <option value="NZD">NZD - New Zealand Dollar</option>
+              <option value="THB">THB - Thai Baht</option>
+              <option value="COP">COP - Colombian Peso</option>
+              <option value="ARS">ARS - Argentine Peso</option>
+              <option value="_custom">Other...</option>
+            </select>
+            {!['', 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'INR', 'MXN', 'BRL', 'KRW', 'SGD', 'HKD', 'SEK', 'NOK', 'DKK', 'NZD', 'THB', 'COP', 'ARS'].includes(defaultCurrency) && (
+              <input
+                type="text"
+                className={styles.input}
+                placeholder="3-letter ISO 4217 code"
+                value={defaultCurrency}
+                onChange={(e) => setDefaultCurrency(e.target.value.toUpperCase())}
+                maxLength={3}
+              />
+            )}
           </div>
 
           <div className={styles.actions}>
@@ -389,46 +414,6 @@ export default function SettingsPage() {
             </button>
             {message && <span className={styles.message}>{message}</span>}
           </div>
-        </div>
-
-        <div className={styles.section}>
-          <h2 className={styles.sectionTitle}>Community Data Sharing</h2>
-
-          <div className={styles.toggleRow}>
-            <button
-              type="button"
-              className={`${styles.toggle} ${config.communitySharing ? styles.toggleOn : ''}`}
-              onClick={async () => {
-                const newValue = !config.communitySharing;
-                const res = await fetch('/api/admin/config', {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ communitySharing: newValue }),
-                });
-                const data = await res.json();
-                if (data.ok) setConfig(data.data);
-              }}
-            >
-              <span className={styles.toggleKnob} />
-            </button>
-            <div>
-              <span className={styles.toggleLabel}>
-                {config.communitySharing ? 'Sharing enabled' : 'Sharing disabled'}
-              </span>
-              <p className={styles.toggleHint}>
-                Share anonymized price data (route, price, airline, date) with the Fairtrail community.
-              </p>
-            </div>
-          </div>
-
-          {config.communityApiKey && (
-            <div className={styles.field}>
-              <label className={styles.label}>API Key</label>
-              <code className={styles.code}>
-                {config.communityApiKey.slice(0, 8)}...{config.communityApiKey.slice(-4)}
-              </code>
-            </div>
-          )}
         </div>
 
         <div className={styles.section}>
@@ -450,8 +435,8 @@ export default function SettingsPage() {
             >
               <div className={styles.vpnCardHeader}>
                 <span className={styles.vpnCardName}>ExpressVPN</span>
-                <span className={hasVpnCode ? styles.vpnCardStatusReady : styles.vpnCardStatusOff}>
-                  {hasVpnCode ? 'Configured' : 'Not set up'}
+                <span className={vpnLive?.ready ? styles.vpnCardStatusReady : hasVpnCode ? styles.vpnCardStatusWarn : styles.vpnCardStatusOff}>
+                  {vpnLive?.ready ? 'Connected' : hasVpnCode ? (vpnLive?.sidecarRunning === false ? 'Sidecar offline' : 'Code saved') : 'Not set up'}
                 </span>
               </div>
               <span className={styles.vpnCardDesc}>Docker sidecar with SOCKS5 proxy</span>
@@ -553,8 +538,47 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+
+        <div className={styles.section}>
+          <h2 className={styles.sectionTitle}>Community Data Sharing</h2>
+
+          <div className={styles.toggleRow}>
+            <button
+              type="button"
+              className={`${styles.toggle} ${config.communitySharing ? styles.toggleOn : ''}`}
+              onClick={async () => {
+                const newValue = !config.communitySharing;
+                const res = await fetch('/api/admin/config', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ communitySharing: newValue }),
+                });
+                const data = await res.json();
+                if (data.ok) setConfig(data.data);
+              }}
+            >
+              <span className={styles.toggleKnob} />
+            </button>
+            <div>
+              <span className={styles.toggleLabel}>
+                {config.communitySharing ? 'Sharing enabled' : 'Sharing disabled'}
+              </span>
+              <p className={styles.toggleHint}>
+                Share anonymized price data (route, price, airline, date) with the Fairtrail community.
+              </p>
+            </div>
+          </div>
+
+          {config.communityApiKey && (
+            <div className={styles.field}>
+              <label className={styles.label}>API Key</label>
+              <code className={styles.code}>
+                {config.communityApiKey.slice(0, 8)}...{config.communityApiKey.slice(-4)}
+              </code>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-// build 1774897677
