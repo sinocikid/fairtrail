@@ -59,12 +59,22 @@ const POPULAR_COUNTRIES = [
   { code: 'GB', flag: '\u{1F1EC}\u{1F1E7}', name: 'UK' },
   { code: 'DE', flag: '\u{1F1E9}\u{1F1EA}', name: 'DE' },
   { code: 'FR', flag: '\u{1F1EB}\u{1F1F7}', name: 'FR' },
+  { code: 'ES', flag: '\u{1F1EA}\u{1F1F8}', name: 'ES' },
+  { code: 'IT', flag: '\u{1F1EE}\u{1F1F9}', name: 'IT' },
+  { code: 'NL', flag: '\u{1F1F3}\u{1F1F1}', name: 'NL' },
+  { code: 'IE', flag: '\u{1F1EE}\u{1F1EA}', name: 'IE' },
   { code: 'JP', flag: '\u{1F1EF}\u{1F1F5}', name: 'JP' },
+  { code: 'KR', flag: '\u{1F1F0}\u{1F1F7}', name: 'KR' },
   { code: 'IN', flag: '\u{1F1EE}\u{1F1F3}', name: 'IN' },
-  { code: 'BR', flag: '\u{1F1E7}\u{1F1F7}', name: 'BR' },
+  { code: 'TH', flag: '\u{1F1F9}\u{1F1ED}', name: 'TH' },
+  { code: 'SG', flag: '\u{1F1F8}\u{1F1EC}', name: 'SG' },
+  { code: 'HK', flag: '\u{1F1ED}\u{1F1F0}', name: 'HK' },
   { code: 'AU', flag: '\u{1F1E6}\u{1F1FA}', name: 'AU' },
   { code: 'CA', flag: '\u{1F1E8}\u{1F1E6}', name: 'CA' },
   { code: 'MX', flag: '\u{1F1F2}\u{1F1FD}', name: 'MX' },
+  { code: 'BR', flag: '\u{1F1E7}\u{1F1F7}', name: 'BR' },
+  { code: 'AR', flag: '\u{1F1E6}\u{1F1F7}', name: 'AR' },
+  { code: 'CO', flag: '\u{1F1E8}\u{1F1F4}', name: 'CO' },
 ];
 
 export function ConfirmationCard({
@@ -87,6 +97,7 @@ export function ConfirmationCard({
   onVpnCountriesChange?: (countries: string[]) => void;
 }) {
   const [vpnOpen, setVpnOpen] = useState(false);
+  const [vpnShowAll, setVpnShowAll] = useState(false);
 
   const toggleCountry = (code: string) => {
     if (!onVpnCountriesChange || !vpnCountries) return;
@@ -212,42 +223,54 @@ export function ConfirmationCard({
       )}
 
       {onVpnCountriesChange && (
-        <div className={styles.vpnSection}>
+        <div className={styles.vpnContainer}>
           <button
-            className={styles.vpnToggle}
+            className={styles.vpnHeader}
             onClick={() => setVpnOpen(!vpnOpen)}
             type="button"
+            aria-expanded={vpnOpen}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
-            Compare prices from different countries
-            <span className={styles.vpnChevron} data-open={vpnOpen}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M6 9l6 6 6-6" />
+            <div className={styles.vpnHeaderLeft}>
+              <svg className={styles.vpnGlobe} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
               </svg>
-            </span>
-            {vpnCountries && vpnCountries.length > 0 && (
-              <span className={styles.vpnCount}>{vpnCountries.length}</span>
-            )}
+              <span className={styles.vpnTitle}>Global Price Check</span>
+              {vpnCountries && vpnCountries.length > 0 && (
+                <span className={styles.vpnBadge}>{vpnCountries.length}</span>
+              )}
+            </div>
+            <svg className={`${styles.vpnChevron} ${vpnOpen ? styles.vpnChevronOpen : ''}`} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
           </button>
+
+          {!vpnOpen && (
+            <div className={styles.vpnTeaser} onClick={() => setVpnOpen(true)}>
+              Does your location affect the price? <span className={styles.vpnHighlight}>Find out.</span>
+            </div>
+          )}
+
           {vpnOpen && (
-            <div className={styles.vpnPicker}>
-              <p className={styles.vpnHint}>
-                Test the myth: does VPN location change flight prices? Select countries to compare.
-              </p>
-              <div className={styles.vpnGrid}>
-                {POPULAR_COUNTRIES.map((c) => (
+            <div className={styles.vpnPanel}>
+              <div className={styles.vpnChipGrid}>
+                {(vpnShowAll ? POPULAR_COUNTRIES : POPULAR_COUNTRIES.slice(0, 12)).map((c) => (
                   <button
                     key={c.code}
                     className={`${styles.vpnChip} ${vpnCountries?.includes(c.code) ? styles.vpnChipActive : ''}`}
                     onClick={() => toggleCountry(c.code)}
                     type="button"
                   >
-                    {c.flag} {c.name}
+                    <span>{c.flag}</span>
+                    <span className={styles.vpnChipCode}>{c.name}</span>
                   </button>
                 ))}
               </div>
+              {!vpnShowAll && POPULAR_COUNTRIES.length > 12 && (
+                <button className={styles.vpnShowAll} onClick={() => setVpnShowAll(true)} type="button">
+                  + {POPULAR_COUNTRIES.length - 12} more regions
+                </button>
+              )}
             </div>
           )}
         </div>
