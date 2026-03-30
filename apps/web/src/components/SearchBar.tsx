@@ -51,6 +51,11 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
       .then((r) => r.json())
       .then((d) => setInviteValid(d.ok ? d.data.valid : false))
       .catch(() => setInviteValid(false));
+
+    fetch('/api/admin/config')
+      .then((r) => r.json())
+      .then((d) => { if (d.ok && d.data.defaultCurrency) setAdminCurrency(d.data.defaultCurrency); })
+      .catch(() => {});
   }, []);
 
   const handleInviteSubmit = async () => {
@@ -96,6 +101,7 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
 
   // VPN country comparison
   const [vpnCountries, setVpnCountries] = useState<string[]>([]);
+  const [adminCurrency, setAdminCurrency] = useState<string | null>(null);
 
   // Link banner state — multiple trackers
   const [createdTrackers, setCreatedTrackers] = useState<CreatedTracker[] | null>(null);
@@ -124,10 +130,9 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
       const { parsed: p, confidence, ambiguities: ambs } = data.data;
 
       // If the LLM didn't detect a currency (null = user didn't mention one),
-      // use the browser's locale currency instead
+      // use admin default currency, then browser locale as last resort
       if (p && !p.currency) {
-        const localeCurrency = detectLocaleCurrency();
-        p.currency = localeCurrency;
+        p.currency = adminCurrency || detectLocaleCurrency();
       }
 
       if (confidence === 'high' && p) {
