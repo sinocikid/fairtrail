@@ -182,9 +182,9 @@ export async function POST(request: NextRequest) {
   if (!body) return apiError('Invalid JSON body', 400);
 
   const { dateFrom, dateTo, maxPrice, maxStops, preferredAirlines, timePreference, cabinClass, tripType, currency: bodyCurrency } = body;
-  // Use body currency, fall back to admin default currency, then null (auto-detect)
+  // Admin default currency takes priority over browser-detected currency
   const config = await prisma.extractionConfig.findFirst({ where: { id: 'singleton' } });
-  const currency: string | null = (typeof bodyCurrency === 'string' && bodyCurrency) ? bodyCurrency : config?.defaultCurrency ?? null;
+  const currency: string | null = config?.defaultCurrency ?? (typeof bodyCurrency === 'string' && bodyCurrency ? bodyCurrency : null);
 
   // Multi-date support: individual outbound/return dates
   const outboundDates: string[] | undefined = Array.isArray(body.outboundDates) ? body.outboundDates : undefined;
