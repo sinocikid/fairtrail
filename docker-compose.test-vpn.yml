@@ -1,6 +1,15 @@
-# Test compose: simulates what a user gets after install
-# Run: docker compose -f docker-compose.test-vpn.yml up -d
-# Access: http://localhost:3005
+# Test compose for macOS: uses vpn-bridge.mjs on the host
+#
+# 1. Start the VPN bridge on the host:
+#    node scripts/vpn-bridge.mjs
+#
+# 2. Start the containers:
+#    ANTHROPIC_API_KEY=... docker compose -f docker-compose.test-vpn.yml up -d
+#
+# 3. Access: http://localhost:3005
+#
+# The bridge controls ExpressVPN on the Mac via AppleScript.
+# Docker Desktop routes container traffic through the host's VPN.
 
 services:
   db:
@@ -35,10 +44,13 @@ services:
         condition: service_healthy
     ports:
       - "3005:3003"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DATABASE_URL: postgresql://postgres:testpass@db:5432/fairtrail
       REDIS_URL: redis://redis:6379
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      EXPRESSVPN_API_URL: http://host.docker.internal:8000
       CHROME_PATH: /usr/bin/chromium-browser
       NODE_ENV: production
       SELF_HOSTED: "true"
