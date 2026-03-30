@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { EXTRACTION_PROVIDERS, LOCAL_PROVIDERS } from '@/lib/scraper/ai-registry';
+import { EXTRACTION_PROVIDERS, LOCAL_PROVIDERS, CLI_PROVIDERS } from '@/lib/scraper/ai-registry';
 import styles from './page.module.css';
 
 interface Config {
@@ -36,6 +36,7 @@ export default function SettingsPage() {
   const [vpnCodeSaving, setVpnCodeSaving] = useState(false);
   const [vpnCodeMessage, setVpnCodeMessage] = useState('');
   const [hasVpnCode, setHasVpnCode] = useState(false);
+  const [detectedProviders, setDetectedProviders] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -70,6 +71,11 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
+    fetch('/api/setup/status')
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setDetectedProviders(d.data.detectedProviders); })
+      .catch(() => {});
+
     fetch('/api/admin/config')
       .then((r) => r.json())
       .then((d) => {
@@ -170,15 +176,34 @@ export default function SettingsPage() {
 
           <div className={styles.field}>
             <label className={styles.label}>Provider</label>
-            <select
-              className={styles.select}
-              value={provider}
-              onChange={(e) => handleProviderChange(e.target.value)}
-            >
-              {Object.entries(EXTRACTION_PROVIDERS).map(([key, p]) => (
-                <option key={key} value={key}>{p.displayName}</option>
-              ))}
-            </select>
+            <div className={styles.providerGrid}>
+              {Object.entries(EXTRACTION_PROVIDERS).map(([key, p]) => {
+                const detected = detectedProviders.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`${styles.providerCard} ${provider === key ? styles.providerCardSelected : ''} ${!detected ? styles.providerCardUnavailable : ''}`}
+                    onClick={() => handleProviderChange(key)}
+                  >
+                    <span className={styles.providerCardName}>{p.displayName}</span>
+                    <span className={styles.providerCardStatus}>
+                      {detected
+                        ? CLI_PROVIDERS[key]
+                          ? 'Your subscription'
+                          : LOCAL_PROVIDERS.has(key)
+                            ? 'Local'
+                            : 'Ready'
+                        : CLI_PROVIDERS[key]
+                          ? 'Not installed'
+                          : LOCAL_PROVIDERS.has(key)
+                            ? 'Local'
+                            : 'No key'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className={styles.field}>
@@ -403,21 +428,64 @@ export default function SettingsPage() {
         </div>
 
         <div className={styles.section}>
-          <h2 className={styles.sectionTitle}>VPN Setup</h2>
-
+          <h2 className={styles.sectionTitle}>VPN Price Comparison</h2>
           <p className={styles.toggleHint}>
-            Connect an ExpressVPN subscription to compare flight prices from different countries.
+            Test the myth: do flight prices change based on your VPN location?
           </p>
 
-          <div className={styles.field}>
-            <label className={styles.label}>
-              Activation Code {hasVpnCode && <span className={styles.vpnCodeSet}>(configured)</span>}
-            </label>
+          <div className={styles.vpnProviderGrid}>
+            <button
+              type="button"
+              className={`${styles.vpnCard} ${vpnProvider === 'expressvpn' && hasVpnCode ? styles.vpnCardActive : ''}`}
+              onClick={() => {
+                if (!hasVpnCode) {
+                  const el = document.getElementById('vpn-activation-input');
+                  el?.focus();
+                }
+              }}
+            >
+              <div className={styles.vpnCardHeader}>
+                <span className={styles.vpnCardName}>ExpressVPN</span>
+                <span className={hasVpnCode ? styles.vpnCardStatusReady : styles.vpnCardStatusOff}>
+                  {hasVpnCode ? 'Configured' : 'Not set up'}
+                </span>
+              </div>
+              <span className={styles.vpnCardDesc}>Docker sidecar with SOCKS5 proxy</span>
+            </button>
+
+            <div className={styles.vpnCardDisabled}>
+              <div className={styles.vpnCardHeader}>
+                <span className={styles.vpnCardName}>NordVPN</span>
+                <span className={styles.vpnCardStatusOff}>Coming soon</span>
+              </div>
+              <span className={styles.vpnCardDesc}>WireGuard-based sidecar</span>
+            </div>
+
+            <div className={styles.vpnCardDisabled}>
+              <div className={styles.vpnCardHeader}>
+                <span className={styles.vpnCardName}>Mullvad</span>
+                <span className={styles.vpnCardStatusOff}>Coming soon</span>
+              </div>
+              <span className={styles.vpnCardDesc}>Privacy-focused SOCKS5</span>
+            </div>
+
+            <div className={styles.vpnCardDisabled}>
+              <div className={styles.vpnCardHeader}>
+                <span className={styles.vpnCardName}>Custom Proxy</span>
+                <span className={styles.vpnCardStatusOff}>Coming soon</span>
+              </div>
+              <span className={styles.vpnCardDesc}>SOCKS5/HTTP proxy URLs</span>
+            </div>
+          </div>
+
+          <div className={styles.vpnActivation}>
+            <label className={styles.label}>ExpressVPN Activation Code</label>
             <div className={styles.vpnCodeRow}>
               <input
+                id="vpn-activation-input"
                 type="password"
                 className={styles.input}
-                placeholder={hasVpnCode ? 'Leave blank to keep current' : 'Paste your ExpressVPN activation code'}
+                placeholder={hasVpnCode ? 'Leave blank to keep current' : 'Paste your activation code'}
                 value={vpnActivationCode}
                 onChange={(e) => setVpnActivationCode(e.target.value)}
               />
@@ -426,50 +494,59 @@ export default function SettingsPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.vpnGetCode}
-                title="Get your activation code from ExpressVPN"
+                title="Get your activation code"
               >
                 Get code
               </a>
             </div>
-            <span className={styles.toggleHint}>
-              Your code is encrypted before storage. Find it at{' '}
-              <a href="https://www.expressvpn.com/setup" target="_blank" rel="noopener noreferrer">
-                expressvpn.com/setup
-              </a>
-            </span>
-          </div>
 
-          <div className={styles.actions}>
-            <button
-              className={styles.saveButton}
-              disabled={vpnCodeSaving || !vpnActivationCode}
-              onClick={async () => {
-                setVpnCodeSaving(true);
-                setVpnCodeMessage('');
-                const res = await fetch('/api/admin/config', {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    vpnActivationCode: vpnActivationCode,
-                    vpnProvider: 'expressvpn',
-                  }),
-                });
-                const data = await res.json();
-                if (data.ok) {
-                  setConfig(data.data);
-                  setHasVpnCode(true);
-                  setVpnActivationCode('');
-                  setVpnProvider('expressvpn');
-                  setVpnCodeMessage('VPN configured');
-                } else {
-                  setVpnCodeMessage(data.error || 'Failed to save');
-                }
-                setVpnCodeSaving(false);
-              }}
-            >
-              {vpnCodeSaving ? 'Saving...' : 'Save VPN Code'}
-            </button>
-            {vpnCodeMessage && <span className={styles.message}>{vpnCodeMessage}</span>}
+            <div className={styles.vpnSteps}>
+              <div className={styles.vpnStep}>
+                <span className={styles.vpnStepNum}>1</span>
+                <span>Visit <a href="https://www.expressvpn.com/setup" target="_blank" rel="noopener noreferrer">expressvpn.com/setup</a> and copy your activation code</span>
+              </div>
+              <div className={styles.vpnStep}>
+                <span className={styles.vpnStepNum}>2</span>
+                <span>Paste it above and save (encrypted before storage)</span>
+              </div>
+              <div className={styles.vpnStep}>
+                <span className={styles.vpnStepNum}>3</span>
+                <span>Restart with: <code>docker compose -f ... -f docker-compose.vpn.yml up -d</code></span>
+              </div>
+            </div>
+
+            <div className={styles.actions}>
+              <button
+                className={styles.saveButton}
+                disabled={vpnCodeSaving || !vpnActivationCode}
+                onClick={async () => {
+                  setVpnCodeSaving(true);
+                  setVpnCodeMessage('');
+                  const res = await fetch('/api/admin/config', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      vpnActivationCode: vpnActivationCode,
+                      vpnProvider: 'expressvpn',
+                    }),
+                  });
+                  const data = await res.json();
+                  if (data.ok) {
+                    setConfig(data.data);
+                    setHasVpnCode(true);
+                    setVpnActivationCode('');
+                    setVpnProvider('expressvpn');
+                    setVpnCodeMessage('VPN configured');
+                  } else {
+                    setVpnCodeMessage(data.error || 'Failed to save');
+                  }
+                  setVpnCodeSaving(false);
+                }}
+              >
+                {vpnCodeSaving ? 'Saving...' : hasVpnCode ? 'Update Code' : 'Save Code'}
+              </button>
+              {vpnCodeMessage && <span className={styles.message}>{vpnCodeMessage}</span>}
+            </div>
           </div>
         </div>
       </div>
