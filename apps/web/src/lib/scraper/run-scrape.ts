@@ -68,15 +68,23 @@ async function scrapeQueryForCountry(
 
   async function navigateAll(): Promise<NavigationResult[]> {
     if (useAirlineDirect) {
-      return Promise.all(
+      const results = await Promise.all(
         directAirlines.map(async (airline) => {
           try {
-            return await navigateAirlineDirect(searchParams, airline, countryProfile, proxyUrl);
+            const result = await navigateAirlineDirect(searchParams, airline, countryProfile, proxyUrl);
+            if (!result.resultsFound) return null; // airline site blocked/empty
+            return result;
           } catch {
-            return navigateGoogleFlights(searchParams, countryProfile, proxyUrl);
+            return null;
           }
         })
       );
+      const valid = results.filter((r): r is NavigationResult => r !== null);
+      // If all airline-direct attempts failed, fall back to Google Flights
+      if (valid.length === 0) {
+        return [await navigateGoogleFlights(searchParams, countryProfile, proxyUrl)];
+      }
+      return valid;
     }
     return [await navigateGoogleFlights(searchParams, countryProfile, proxyUrl)];
   }
