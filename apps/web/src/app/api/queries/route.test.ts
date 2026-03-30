@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
+const { mockQueryCreate, mockSnapshotCreateMany } = vi.hoisted(() => ({
   mockQueryCreate: vi.fn().mockImplementation((args: { data: Record<string, unknown> }) =>
     Promise.resolve({ id: 'q-' + Math.random().toString(36).slice(2, 8), ...args.data })
   ),
   mockSnapshotCreateMany: vi.fn().mockResolvedValue({ count: 0 }),
-}));
-
 }));
 
 vi.mock('next/headers', () => ({

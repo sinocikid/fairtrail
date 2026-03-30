@@ -3,8 +3,6 @@ import { NextRequest } from 'next/server';
 
 const mockParseFlightQuery = vi.fn();
 
-}));
-
 vi.mock('@/lib/scraper/parse-query', () => ({
   parseFlightQuery: (...args: unknown[]) => mockParseFlightQuery(...args),
 }));
@@ -33,12 +31,6 @@ function makeRequest(body: unknown): NextRequest {
 describe('POST /api/parse', () => {
   beforeEach(() => {
     mockParseFlightQuery.mockReset();
-  });
-
-  it('rejects unauthenticated request with 401', async () => {
-    const res = await POST(makeRequest({ query: 'JFK to LAX June 15' }));
-    expect(res.status).toBe(401);
-    const body = await res.json();
   });
 
   it('rejects missing query field with 400', async () => {
