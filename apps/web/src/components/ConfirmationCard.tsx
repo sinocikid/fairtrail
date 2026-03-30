@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Airport } from '@/lib/scraper/parse-query';
 import { currencySymbol } from '@/lib/currency';
 import styles from './ConfirmationCard.module.css';
@@ -98,6 +98,15 @@ export function ConfirmationCard({
 }) {
   const [vpnOpen, setVpnOpen] = useState(false);
   const [vpnShowAll, setVpnShowAll] = useState(false);
+  const [vpnStatus, setVpnStatus] = useState<{ configured: boolean; sidecarRunning: boolean; ready: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!onVpnCountriesChange) return;
+    fetch('/api/vpn/status')
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setVpnStatus(d.data); })
+      .catch(() => {});
+  }, [onVpnCountriesChange]);
 
   const toggleCountry = (code: string) => {
     if (!onVpnCountriesChange || !vpnCountries) return;
@@ -236,6 +245,11 @@ export function ConfirmationCard({
                 <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
               </svg>
               <span className={styles.vpnTitle}>Global Price Check</span>
+              {vpnStatus && (
+                <span className={vpnStatus.ready ? styles.vpnStatusReady : styles.vpnStatusOff}>
+                  {vpnStatus.ready ? 'VPN ready' : !vpnStatus.configured ? 'Not set up' : 'Sidecar offline'}
+                </span>
+              )}
               {vpnCountries && vpnCountries.length > 0 && (
                 <span className={styles.vpnBadge}>{vpnCountries.length}</span>
               )}
@@ -251,7 +265,30 @@ export function ConfirmationCard({
             </div>
           )}
 
-          {vpnOpen && (
+          {vpnOpen && vpnStatus && !vpnStatus.ready && (
+            <div className={styles.vpnPanel}>
+              <div className={styles.vpnSetupPrompt}>
+                {!vpnStatus.configured ? (
+                  <>
+                    <p>VPN is not configured yet. Set up ExpressVPN to compare prices from different countries.</p>
+                    <a href="/settings" className={styles.vpnSetupLink}>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                        <path d="M6.5 1.75a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75v.3a5.5 5.5 0 0 1 1.654.685l.212-.212a.75.75 0 0 1 1.06 0l1.061 1.06a.75.75 0 0 1 0 1.061l-.212.212A5.5 5.5 0 0 1 14 6.5h.25a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-.75.75H14a5.5 5.5 0 0 1-.685 1.654l.212.212a.75.75 0 0 1 0 1.06l-1.06 1.061a.75.75 0 0 1-1.061 0l-.212-.212A5.5 5.5 0 0 1 9.5 14v.25a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1-.75-.75V14a5.5 5.5 0 0 1-1.654-.685l-.212.212a.75.75 0 0 1-1.06 0l-1.061-1.06a.75.75 0 0 1 0-1.061l.212-.212A5.5 5.5 0 0 1 2 9.5h-.25a.75.75 0 0 1-.75-.75v-1.5a.75.75 0 0 1 .75-.75H2a5.5 5.5 0 0 1 .685-1.654l-.212-.212a.75.75 0 0 1 0-1.06l1.06-1.061a.75.75 0 0 1 1.061 0l.212.212A5.5 5.5 0 0 1 6.5 2.05v-.3ZM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" fill="currentColor" />
+                      </svg>
+                      Go to Settings
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <p>ExpressVPN sidecar is not running. Start Fairtrail with VPN support:</p>
+                    <code className={styles.vpnCommand}>docker compose -f docker-compose.prod.yml -f docker-compose.vpn.yml up -d</code>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {vpnOpen && (!vpnStatus || vpnStatus.ready) && (
             <div className={styles.vpnPanel}>
               <div className={styles.vpnChipGrid}>
                 {(vpnShowAll ? POPULAR_COUNTRIES : POPULAR_COUNTRIES.slice(0, 12)).map((c) => (
