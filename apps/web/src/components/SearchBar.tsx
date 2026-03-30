@@ -76,6 +76,9 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
   const [previewRoutes, setPreviewRoutes] = useState<RouteFlights[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
+  // VPN country comparison
+  const [vpnCountries, setVpnCountries] = useState<string[]>([]);
+
   // Link banner state — multiple trackers
   const [createdTrackers, setCreatedTrackers] = useState<CreatedTracker[] | null>(null);
 
@@ -216,6 +219,7 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
           currency: parsed.currency,
           cabinClass: parsed.cabinClass,
           tripType: parsed.tripType,
+          vpnCountries,
           routes: routeSelections.map((rs) => ({
             origin: rs.route.origin,
             originName: rs.route.originName,
@@ -395,6 +399,8 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
           onTrack={handlePreview}
           onEdit={handleReset}
           loading={loading}
+          vpnCountries={vpnCountries}
+          onVpnCountriesChange={setVpnCountries}
         />
       )}
 

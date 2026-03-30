@@ -15,6 +15,9 @@ interface Config {
   customBaseUrl: string | null;
   defaultCurrency: string | null;
   defaultCountry: string | null;
+  vpnProvider: string | null;
+  vpnCountries: string[];
+  hasVpnActivationCode: boolean;
 }
 
 export default function SettingsPage() {
@@ -26,6 +29,13 @@ export default function SettingsPage() {
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [defaultCurrency, setDefaultCurrency] = useState('');
   const [defaultCountry, setDefaultCountry] = useState('');
+  const [vpnProvider, setVpnProvider] = useState('none');
+  const [vpnCountries, setVpnCountries] = useState<string[]>([]);
+  const [vpnCountryInput, setVpnCountryInput] = useState('');
+  const [vpnActivationCode, setVpnActivationCode] = useState('');
+  const [vpnCodeSaving, setVpnCodeSaving] = useState(false);
+  const [vpnCodeMessage, setVpnCodeMessage] = useState('');
+  const [hasVpnCode, setHasVpnCode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -70,6 +80,9 @@ export default function SettingsPage() {
           setCustomBaseUrl(d.data.customBaseUrl || '');
           setDefaultCurrency(d.data.defaultCurrency || '');
           setDefaultCountry(d.data.defaultCountry || '');
+          setVpnProvider(d.data.vpnProvider || 'none');
+          setVpnCountries(d.data.vpnCountries || []);
+          setHasVpnCode(d.data.hasVpnActivationCode || false);
           const pc = EXTRACTION_PROVIDERS[d.data.provider];
           const knownModel = pc?.models.find((m) => m.id === d.data.model);
           if (knownModel) {
@@ -120,6 +133,8 @@ export default function SettingsPage() {
         customBaseUrl: customBaseUrl.trim() || null,
         defaultCurrency: defaultCurrency.trim().toUpperCase() || null,
         defaultCountry: defaultCountry.trim().toUpperCase() || null,
+        vpnProvider: vpnProvider === 'none' ? null : vpnProvider,
+        vpnCountries,
       }),
     });
 
@@ -268,6 +283,73 @@ export default function SettingsPage() {
             />
           </div>
 
+          <div className={styles.field}>
+            <label className={styles.label}>VPN Provider</label>
+            <select
+              className={styles.select}
+              value={vpnProvider}
+              onChange={(e) => setVpnProvider(e.target.value)}
+            >
+              <option value="none">None</option>
+              <option value="expressvpn">ExpressVPN (macOS)</option>
+            </select>
+            <span className={styles.toggleHint}>
+              Scrape from multiple countries to compare prices. macOS only.
+            </span>
+          </div>
+
+          {vpnProvider !== 'none' && (
+            <div className={styles.field}>
+              <label className={styles.label}>VPN Countries</label>
+              <div className={styles.vpnCountries}>
+                {vpnCountries.map((code) => (
+                  <span key={code} className={styles.vpnBadge}>
+                    {String.fromCodePoint(...code.split('').map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))} {code}
+                    <button
+                      className={styles.vpnBadgeRemove}
+                      onClick={() => setVpnCountries(vpnCountries.filter((c) => c !== code))}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className={styles.vpnAddRow}>
+                <input
+                  type="text"
+                  className={styles.input}
+                  placeholder="e.g. US, DE, JP"
+                  value={vpnCountryInput}
+                  onChange={(e) => setVpnCountryInput(e.target.value.toUpperCase())}
+                  maxLength={2}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const code = vpnCountryInput.trim();
+                      if (/^[A-Z]{2}$/.test(code) && !vpnCountries.includes(code)) {
+                        setVpnCountries([...vpnCountries, code]);
+                        setVpnCountryInput('');
+                      }
+                    }
+                  }}
+                />
+                <button
+                  className={styles.saveButton}
+                  type="button"
+                  onClick={() => {
+                    const code = vpnCountryInput.trim();
+                    if (/^[A-Z]{2}$/.test(code) && !vpnCountries.includes(code)) {
+                      setVpnCountries([...vpnCountries, code]);
+                      setVpnCountryInput('');
+                    }
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          )}
+
           <p className={styles.providerHint}>
             Env key: <code className={styles.code}>{providerConfig?.envKey ?? 'N/A'}</code>
           </p>
@@ -318,6 +400,77 @@ export default function SettingsPage() {
               </code>
             </div>
           )}
+        </div>
+
+        <div className={styles.section}>
+          <h2 className={styles.sectionTitle}>VPN Setup</h2>
+
+          <p className={styles.toggleHint}>
+            Connect an ExpressVPN subscription to compare flight prices from different countries.
+          </p>
+
+          <div className={styles.field}>
+            <label className={styles.label}>
+              Activation Code {hasVpnCode && <span className={styles.vpnCodeSet}>(configured)</span>}
+            </label>
+            <div className={styles.vpnCodeRow}>
+              <input
+                type="password"
+                className={styles.input}
+                placeholder={hasVpnCode ? 'Leave blank to keep current' : 'Paste your ExpressVPN activation code'}
+                value={vpnActivationCode}
+                onChange={(e) => setVpnActivationCode(e.target.value)}
+              />
+              <a
+                href="https://www.expressvpn.com/setup"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.vpnGetCode}
+                title="Get your activation code from ExpressVPN"
+              >
+                Get code
+              </a>
+            </div>
+            <span className={styles.toggleHint}>
+              Your code is encrypted before storage. Find it at{' '}
+              <a href="https://www.expressvpn.com/setup" target="_blank" rel="noopener noreferrer">
+                expressvpn.com/setup
+              </a>
+            </span>
+          </div>
+
+          <div className={styles.actions}>
+            <button
+              className={styles.saveButton}
+              disabled={vpnCodeSaving || !vpnActivationCode}
+              onClick={async () => {
+                setVpnCodeSaving(true);
+                setVpnCodeMessage('');
+                const res = await fetch('/api/admin/config', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    vpnActivationCode: vpnActivationCode,
+                    vpnProvider: 'expressvpn',
+                  }),
+                });
+                const data = await res.json();
+                if (data.ok) {
+                  setConfig(data.data);
+                  setHasVpnCode(true);
+                  setVpnActivationCode('');
+                  setVpnProvider('expressvpn');
+                  setVpnCodeMessage('VPN configured');
+                } else {
+                  setVpnCodeMessage(data.error || 'Failed to save');
+                }
+                setVpnCodeSaving(false);
+              }}
+            >
+              {vpnCodeSaving ? 'Saving...' : 'Save VPN Code'}
+            </button>
+            {vpnCodeMessage && <span className={styles.message}>{vpnCodeMessage}</span>}
+          </div>
         </div>
       </div>
     </div>

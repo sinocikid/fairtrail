@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { Airport } from '@/lib/scraper/parse-query';
 import { currencySymbol } from '@/lib/currency';
 import styles from './ConfirmationCard.module.css';
@@ -53,6 +54,19 @@ function computeExpiry(dateTo: string, flexibility: number): string {
   });
 }
 
+const POPULAR_COUNTRIES = [
+  { code: 'US', flag: '\u{1F1FA}\u{1F1F8}', name: 'US' },
+  { code: 'GB', flag: '\u{1F1EC}\u{1F1E7}', name: 'UK' },
+  { code: 'DE', flag: '\u{1F1E9}\u{1F1EA}', name: 'DE' },
+  { code: 'FR', flag: '\u{1F1EB}\u{1F1F7}', name: 'FR' },
+  { code: 'JP', flag: '\u{1F1EF}\u{1F1F5}', name: 'JP' },
+  { code: 'IN', flag: '\u{1F1EE}\u{1F1F3}', name: 'IN' },
+  { code: 'BR', flag: '\u{1F1E7}\u{1F1F7}', name: 'BR' },
+  { code: 'AU', flag: '\u{1F1E6}\u{1F1FA}', name: 'AU' },
+  { code: 'CA', flag: '\u{1F1E8}\u{1F1E6}', name: 'CA' },
+  { code: 'MX', flag: '\u{1F1F2}\u{1F1FD}', name: 'MX' },
+];
+
 export function ConfirmationCard({
   parsed,
   onTrack,
@@ -60,6 +74,8 @@ export function ConfirmationCard({
   loading,
   actionLabel = 'Show available flights',
   loadingLabel = 'Checking Google Flights...',
+  vpnCountries,
+  onVpnCountriesChange,
 }: {
   parsed: ParsedQuery;
   onTrack: () => void;
@@ -67,7 +83,20 @@ export function ConfirmationCard({
   loading: boolean;
   actionLabel?: string;
   loadingLabel?: string;
+  vpnCountries?: string[];
+  onVpnCountriesChange?: (countries: string[]) => void;
 }) {
+  const [vpnOpen, setVpnOpen] = useState(false);
+
+  const toggleCountry = (code: string) => {
+    if (!onVpnCountriesChange || !vpnCountries) return;
+    if (vpnCountries.includes(code)) {
+      onVpnCountriesChange(vpnCountries.filter((c) => c !== code));
+    } else {
+      onVpnCountriesChange([...vpnCountries, code]);
+    }
+  };
+
   return (
     <div className={styles.root}>
       <div className={styles.route}>
@@ -178,6 +207,48 @@ export function ConfirmationCard({
           )}
           {parsed.cabinClass !== 'economy' && (
             <span className={styles.tag}>{parsed.cabinClass.replace('_', ' ')}</span>
+          )}
+        </div>
+      )}
+
+      {onVpnCountriesChange && (
+        <div className={styles.vpnSection}>
+          <button
+            className={styles.vpnToggle}
+            onClick={() => setVpnOpen(!vpnOpen)}
+            type="button"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            Compare prices from different countries
+            <span className={styles.vpnChevron} data-open={vpnOpen}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </span>
+            {vpnCountries && vpnCountries.length > 0 && (
+              <span className={styles.vpnCount}>{vpnCountries.length}</span>
+            )}
+          </button>
+          {vpnOpen && (
+            <div className={styles.vpnPicker}>
+              <p className={styles.vpnHint}>
+                Test the myth: does VPN location change flight prices? Select countries to compare.
+              </p>
+              <div className={styles.vpnGrid}>
+                {POPULAR_COUNTRIES.map((c) => (
+                  <button
+                    key={c.code}
+                    className={`${styles.vpnChip} ${vpnCountries?.includes(c.code) ? styles.vpnChipActive : ''}`}
+                    onClick={() => toggleCountry(c.code)}
+                    type="button"
+                  >
+                    {c.flag} {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}

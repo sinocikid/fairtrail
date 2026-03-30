@@ -78,6 +78,7 @@ interface QueryWithSnapshots {
     seatsLeft: number | null;
     status: string;
     airlineDirectPrice: number | null;
+    vpnCountry: string | null;
     scrapedAt: string;
   }>;
   lastRun: { startedAt: Date } | null;
@@ -105,6 +106,7 @@ async function loadQueryWithSnapshots(id: string): Promise<QueryWithSnapshots | 
       seatsLeft: true,
       status: true,
       airlineDirectPrice: true,
+      vpnCountry: true,
       scrapedAt: true,
     },
   });

@@ -15,6 +15,9 @@ interface Config {
   defaultCurrency: string | null;
   defaultCountry: string | null;
   customBaseUrl: string | null;
+  vpnProvider: string | null;
+  vpnCountries: string[];
+  hasVpnActivationCode: boolean;
 }
 
 interface InviteCode {
@@ -36,6 +39,9 @@ export default function ConfigPage() {
   const [defaultCurrency, setDefaultCurrency] = useState('');
   const [defaultCountry, setDefaultCountry] = useState('');
   const [customBaseUrl, setCustomBaseUrl] = useState('');
+  const [vpnProvider, setVpnProvider] = useState('none');
+  const [vpnCountries, setVpnCountries] = useState<string[]>([]);
+  const [vpnCountryInput, setVpnCountryInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -95,6 +101,8 @@ export default function ConfigPage() {
           setDefaultCurrency(d.data.defaultCurrency || '');
           setDefaultCountry(d.data.defaultCountry || '');
           setCustomBaseUrl(d.data.customBaseUrl || '');
+          setVpnProvider(d.data.vpnProvider || 'none');
+          setVpnCountries(d.data.vpnCountries || []);
           const pc = EXTRACTION_PROVIDERS[d.data.provider];
           const knownModel = pc?.models.find((m) => m.id === d.data.model);
           if (knownModel) {
@@ -147,6 +155,8 @@ export default function ConfigPage() {
         defaultCurrency: defaultCurrency.trim().toUpperCase() || null,
         defaultCountry: defaultCountry.trim().toUpperCase() || null,
         customBaseUrl: newBaseUrl,
+        vpnProvider: vpnProvider === 'none' ? null : vpnProvider,
+        vpnCountries,
       }),
     });
 
@@ -346,6 +356,73 @@ export default function ConfigPage() {
             maxLength={2}
           />
         </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>VPN Provider</label>
+          <select
+            className={styles.select}
+            value={vpnProvider}
+            onChange={(e) => setVpnProvider(e.target.value)}
+          >
+            <option value="none">None</option>
+            <option value="expressvpn">ExpressVPN (macOS)</option>
+          </select>
+          <span className={styles.toggleHint}>
+            Scrape from multiple countries to compare prices. macOS only.
+          </span>
+        </div>
+
+        {vpnProvider !== 'none' && (
+          <div className={styles.field}>
+            <label className={styles.label}>VPN Countries</label>
+            <div className={styles.vpnCountries}>
+              {vpnCountries.map((code) => (
+                <span key={code} className={styles.vpnBadge}>
+                  {String.fromCodePoint(...code.split('').map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))} {code}
+                  <button
+                    className={styles.vpnBadgeRemove}
+                    onClick={() => setVpnCountries(vpnCountries.filter((c) => c !== code))}
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className={styles.vpnAddRow}>
+              <input
+                type="text"
+                className={styles.input}
+                placeholder="e.g. US, DE, JP"
+                value={vpnCountryInput}
+                onChange={(e) => setVpnCountryInput(e.target.value.toUpperCase())}
+                maxLength={2}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const code = vpnCountryInput.trim();
+                    if (/^[A-Z]{2}$/.test(code) && !vpnCountries.includes(code)) {
+                      setVpnCountries([...vpnCountries, code]);
+                      setVpnCountryInput('');
+                    }
+                  }
+                }}
+              />
+              <button
+                className={styles.saveButton}
+                type="button"
+                onClick={() => {
+                  const code = vpnCountryInput.trim();
+                  if (/^[A-Z]{2}$/.test(code) && !vpnCountries.includes(code)) {
+                    setVpnCountries([...vpnCountries, code]);
+                    setVpnCountryInput('');
+                  }
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className={styles.field}>
           <label className={styles.label}>Status</label>

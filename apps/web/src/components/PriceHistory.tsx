@@ -15,6 +15,7 @@ interface Snapshot {
   seatsLeft: number | null;
   status: string;
   airlineDirectPrice: number | null;
+  vpnCountry: string | null;
   scrapedAt: string;
 }
 
@@ -56,6 +57,8 @@ export function PriceHistory({ snapshots }: { snapshots: Snapshot[] }) {
     .sort((a, b) => new Date(b.scrapedAt).getTime() - new Date(a.scrapedAt).getTime())
     .slice(0, 50);
 
+  const hasCountryData = snapshots.some((s) => s.vpnCountry);
+
   return (
     <div className={styles.root}>
       <h3 className={styles.title}>Price History</h3>
@@ -65,6 +68,7 @@ export function PriceHistory({ snapshots }: { snapshots: Snapshot[] }) {
             <tr>
               <th>Date</th>
               <th>Airline</th>
+              {hasCountryData && <th>Country</th>}
               <th>Times</th>
               <th>Price</th>
               <th>Change</th>
@@ -80,6 +84,9 @@ export function PriceHistory({ snapshots }: { snapshots: Snapshot[] }) {
                 <tr key={s.id}>
                   <td className={styles.date}>{formatDateTime(s.scrapedAt)}</td>
                   <td>{s.airline}</td>
+                  {hasCountryData && (
+                    <td>{s.vpnCountry ? `${String.fromCodePoint(...s.vpnCountry.split('').map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))} ${s.vpnCountry}` : ''}</td>
+                  )}
                   <td className={styles.times}>
                     {s.departureTime || s.arrivalTime
                       ? `${s.departureTime ?? '?'} - ${s.arrivalTime ?? '?'}`

@@ -206,6 +206,79 @@
   border-radius: var(--radius-sm);
 }
 
+.vpnCountries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.vpnBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.vpnBadgeRemove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+}
+
+.vpnBadgeRemove:hover {
+  color: var(--text);
+}
+
+.vpnAddRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.vpnAddRow .input {
+  flex: 1;
+  max-width: 120px;
+}
+
+.vpnCodeRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.vpnCodeRow .input {
+  flex: 1;
+}
+
+.vpnGetCode {
+  font-size: 0.8125rem;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.vpnGetCode:hover {
+  text-decoration: underline;
+}
+
+.vpnCodeSet {
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
 .providerHint {
   font-size: 0.75rem;
   color: var(--muted);
