@@ -24,29 +24,49 @@ function randomPick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
 }
 
-export async function launchBrowser(): Promise<Browser> {
+export interface LaunchBrowserOptions {
+  proxyUrl?: string; // When set, DNS is forced through the SOCKS5 proxy
+}
+
+export async function launchBrowser(options: LaunchBrowserOptions = {}): Promise<Browser> {
   const { chromium } = await import('playwright');
+
+  const args = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--disable-software-rasterizer',
+    '--disable-blink-features=AutomationControlled',
+    '--disable-infobars',
+    '--window-size=1440,900',
+    // Docker Desktop (macOS/Windows) runs in a VM where Chromium's GPU
+    // crashes. These extra flags are safe everywhere but only needed in VMs.
+    // Always include them -- the perf cost is negligible for headless scraping.
+    '--single-process',
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
+    '--in-process-gpu',
+    // WebRTC leak prevention -- block ICE candidates from exposing real IP
+    '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+    '--enforce-webrtc-ip-permission-check',
+  ];
+
+  // When proxying via SOCKS5, force DNS resolution through the proxy to prevent leaks.
+  // Extract the proxy hostname to exclude it from the rule (it must resolve normally).
+  if (options.proxyUrl) {
+    try {
+      const proxyHost = new URL(options.proxyUrl.replace('socks5://', 'http://')).hostname;
+      args.push(`--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE ${proxyHost}`);
+    } catch {
+      args.push('--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost');
+    }
+  }
 
   return chromium.launch({
     headless: true,
     executablePath: process.env.CHROME_PATH || undefined,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--disable-software-rasterizer',
-      '--disable-blink-features=AutomationControlled',
-      '--disable-infobars',
-      '--window-size=1440,900',
-      // Docker Desktop (macOS/Windows) runs in a VM where Chromium's GPU
-      // crashes. These extra flags are safe everywhere but only needed in VMs.
-      // Always include them -- the perf cost is negligible for headless scraping.
-      '--single-process',
-      '--use-gl=angle',
-      '--use-angle=swiftshader',
-      '--in-process-gpu',
-    ],
+    args,
   });
 }
 
@@ -137,6 +157,19 @@ export async function createStealthContext(browser: Browser, options: StealthCon
     Object.defineProperty(navigator, 'deviceMemory', {
       get: () => 8,
     });
+
+    // WebRTC leak prevention -- stub RTCPeerConnection to prevent real IP exposure
+    // Chrome flags handle the network layer; this catches any JS-level WebRTC enumeration
+    const OriginalRTC = window.RTCPeerConnection;
+    if (OriginalRTC) {
+      (window as unknown as Record<string, unknown>).RTCPeerConnection = class extends OriginalRTC {
+        constructor(config?: RTCConfiguration) {
+          // Strip STUN/TURN servers that could reveal the real IP
+          const sanitized = { ...config, iceServers: [] };
+          super(sanitized);
+        }
+      };
+    }
   }, profileLocale);
 
   return context;
