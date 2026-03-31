@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/web/prisma ./apps/web/prisma/
-RUN npm ci
+RUN npm ci --loglevel=error
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 
 # Production-only deps (no devDependencies)
@@ -14,7 +14,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/web/prisma ./apps/web/prisma/
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --loglevel=error
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 
 FROM node:22-alpine AS builder
