@@ -12,6 +12,7 @@ set -euo pipefail
 
 BOLD='\033[1m'
 DIM='\033[2m'
+UNDERLINE='\033[4m'
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
