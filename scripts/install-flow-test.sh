@@ -104,6 +104,40 @@ test_install_overrides() {
 }
 
 # ---------------------------------------------------------------------------
+# Test: install.sh ANSI formatting variables are all defined
+# The script uses set -euo pipefail, so any ${VAR} in a printf where VAR
+# is an ANSI code that was never assigned will crash at runtime.
+# ---------------------------------------------------------------------------
+test_ansi_variables_defined() {
+  local installer="apps/web/public/install.sh"
+
+  # Known ANSI variable names used in formatting
+  local ansi_vars="BOLD DIM UNDERLINE CYAN GREEN YELLOW RED RESET"
+
+  # Extract all top-level assignments (lines like VAR='...')
+  local defined
+  defined=$(grep -oE '^[A-Z_]+=' "$installer" | sed 's/=$//')
+
+  local missing=""
+  for var in $ansi_vars; do
+    # Check if the variable is actually referenced in the script
+    if grep -q "\${${var}}\|\$${var}" "$installer"; then
+      # It's used -- make sure it's defined
+      if ! echo "$defined" | grep -qx "$var"; then
+        missing+="  $var (used but never assigned)"$'\n'
+      fi
+    fi
+  done
+
+  if [ -z "$missing" ]; then
+    pass "install.sh ANSI formatting variables are all defined"
+  else
+    fail "install.sh has undefined ANSI variables (will crash with set -u):"
+    printf "%s" "$missing"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Run all tests
 # ---------------------------------------------------------------------------
 echo ""
@@ -117,6 +151,7 @@ test_old_dir_migration
 test_env_host_port
 test_entrypoint_port_warning
 test_install_overrides
+test_ansi_variables_defined
 
 echo ""
 printf "${BOLD}Results: ${GREEN}%d passed${RESET}, ${RED}%d failed${RESET}\n" "$PASS" "$FAIL"
