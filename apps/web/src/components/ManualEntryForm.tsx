@@ -43,6 +43,16 @@ export function ManualEntryForm({ onSubmit, onCancel, adminCurrency }: ManualEnt
   const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('round_trip');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  // Advanced fields
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [flexibility, setFlexibility] = useState(0);
+  const [maxPrice, setMaxPrice] = useState('');
+  const [maxStops, setMaxStops] = useState('');
+  const [airlines, setAirlines] = useState('');
+  const [timePreference, setTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'redeye'>('any');
+  const [cabinClass, setCabinClass] = useState<'economy' | 'premium_economy' | 'business' | 'first'>('economy');
+  const [currency, setCurrency] = useState('');
+
   const clearError = (field: string) => {
     setFieldErrors((prev) => {
       const next = { ...prev };
@@ -99,17 +109,27 @@ export function ManualEntryForm({ onSubmit, onCancel, adminCurrency }: ManualEnt
       destinations: [{ code: dest, name: dName }],
       dateFrom,
       dateTo: tripType === 'round_trip' ? dateTo : dateFrom,
-      flexibility: 0,
-      maxPrice: null,
-      maxStops: null,
-      preferredAirlines: [],
-      timePreference: 'any',
-      cabinClass: 'economy',
+      flexibility,
+      maxPrice: maxPrice ? parseInt(maxPrice, 10) : null,
+      maxStops: maxStops === '' ? null : parseInt(maxStops, 10),
+      preferredAirlines: airlines ? airlines.split(',').map((s) => s.trim()).filter(Boolean) : [],
+      timePreference,
+      cabinClass,
       tripType,
-      currency: adminCurrency || detectLocaleCurrency(),
+      currency: currency || adminCurrency || detectLocaleCurrency(),
     };
 
-    const rawInput = synthesizeRawInput(code, oName, dest, dName, dateFrom, dateTo, tripType, 'economy');
+    // Adjust date window for flexibility
+    if (flexibility > 0) {
+      const from = new Date(dateFrom + 'T00:00:00');
+      from.setDate(from.getDate() - flexibility);
+      query.dateFrom = from.toISOString().split('T')[0]!;
+      const to = new Date((tripType === 'round_trip' ? dateTo : dateFrom) + 'T00:00:00');
+      to.setDate(to.getDate() + flexibility);
+      query.dateTo = to.toISOString().split('T')[0]!;
+    }
+
+    const rawInput = synthesizeRawInput(code, oName, dest, dName, dateFrom, dateTo, tripType, cabinClass);
     onSubmit(query, rawInput);
   };
 
@@ -233,6 +253,127 @@ export function ManualEntryForm({ onSubmit, onCancel, adminCurrency }: ManualEnt
           </div>
         )}
       </div>
+
+      <button
+        type="button"
+        className={styles.advancedToggle}
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        aria-expanded={showAdvanced}
+      >
+        <span>Advanced options</span>
+        <svg
+          className={`${styles.chevron} ${showAdvanced ? styles.chevronOpen : ''}`}
+          width="16" height="16" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2"
+          aria-hidden="true"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {showAdvanced && (
+        <div className={styles.advancedPanel}>
+          <div className={styles.fieldRow}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="me-flexibility">Flexibility (days)</label>
+              <input
+                id="me-flexibility"
+                className={styles.input}
+                type="number"
+                min={0}
+                max={7}
+                value={flexibility}
+                onChange={(e) => setFlexibility(Math.max(0, Math.min(7, parseInt(e.target.value, 10) || 0)))}
+              />
+            </div>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="me-max-price">Max price</label>
+              <input
+                id="me-max-price"
+                className={styles.input}
+                type="number"
+                min={0}
+                placeholder="No limit"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className={styles.fieldRow}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="me-max-stops">Max stops</label>
+              <select
+                id="me-max-stops"
+                className={styles.input}
+                value={maxStops}
+                onChange={(e) => setMaxStops(e.target.value)}
+              >
+                <option value="">Any</option>
+                <option value="0">Nonstop only</option>
+                <option value="1">Max 1 stop</option>
+                <option value="2">Max 2 stops</option>
+              </select>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="me-cabin">Cabin class</label>
+              <select
+                id="me-cabin"
+                className={styles.input}
+                value={cabinClass}
+                onChange={(e) => setCabinClass(e.target.value as typeof cabinClass)}
+              >
+                <option value="economy">Economy</option>
+                <option value="premium_economy">Premium Economy</option>
+                <option value="business">Business</option>
+                <option value="first">First</option>
+              </select>
+            </div>
+          </div>
+
+          <div className={styles.fieldRow}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="me-time">Time preference</label>
+              <select
+                id="me-time"
+                className={styles.input}
+                value={timePreference}
+                onChange={(e) => setTimePreference(e.target.value as typeof timePreference)}
+              >
+                <option value="any">Any</option>
+                <option value="morning">Morning</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+                <option value="redeye">Red-eye</option>
+              </select>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="me-currency">Currency</label>
+              <input
+                id="me-currency"
+                className={styles.input}
+                type="text"
+                placeholder="Auto-detect"
+                maxLength={3}
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+              />
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="me-airlines">Preferred airlines</label>
+            <input
+              id="me-airlines"
+              className={styles.input}
+              type="text"
+              placeholder="e.g. Delta, United"
+              value={airlines}
+              onChange={(e) => setAirlines(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
       <div className={styles.actions}>
         <button type="submit" className={styles.submitButton}>
