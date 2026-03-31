@@ -69,17 +69,19 @@ export function ManualEntryForm({ onSubmit, onCancel, adminCurrency }: ManualEnt
     if (!/^[A-Z]{3}$/.test(code)) errors.originCode = 'Enter a 3-letter IATA code';
     if (!originName.trim()) errors.originName = 'Enter airport or city name';
     if (!/^[A-Z]{3}$/.test(dest)) errors.destCode = 'Enter a 3-letter IATA code';
+    else if (code && code === dest) errors.destCode = 'Must differ from origin';
     if (!destName.trim()) errors.destName = 'Enter airport or city name';
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     if (!dateFrom) {
       errors.dateFrom = 'Select a departure date';
-    } else {
-      const today = new Date().toISOString().split('T')[0]!;
-      if (dateFrom < today) errors.dateFrom = 'Date cannot be in the past';
+    } else if (dateFrom < todayStr) {
+      errors.dateFrom = 'Date cannot be in the past';
     }
     if (tripType === 'round_trip') {
       if (!dateTo) {
         errors.dateTo = 'Select a return date';
-      } else if (dateFrom && dateTo < dateFrom) {
+      } else if (dateFrom && dateTo <= dateFrom) {
         errors.dateTo = 'Return must be after departure';
       }
     }
@@ -133,7 +135,8 @@ export function ManualEntryForm({ onSubmit, onCancel, adminCurrency }: ManualEnt
     onSubmit(query, rawInput);
   };
 
-  const today = new Date().toISOString().split('T')[0]!;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   return (
     <form className={styles.root} onSubmit={handleSubmit} noValidate>

@@ -274,6 +274,7 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
     setCreatedTrackers(null);
     setManualMode(false);
     setManualRawInput('');
+    setVpnCountries([]);
     inputRef.current?.focus();
   };
 
@@ -376,7 +377,12 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
               <button
                 type="button"
                 className={styles.manualToggle}
-                onClick={() => setManualMode(true)}
+                onClick={() => {
+                  setError(null);
+                  setAmbiguities([]);
+                  setPartialParsed(null);
+                  setManualMode(true);
+                }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <rect x="3" y="3" width="7" height="7" rx="1" />
