@@ -532,10 +532,10 @@ printf "  ${DIM}Compare flight prices from different countries using ExpressVPN.
 printf "  ${DIM}Requires an ExpressVPN subscription.${RESET}\n"
 printf "\n"
 printf "  Set up ExpressVPN? [y/N] "
-read -r SETUP_VPN
+read -r SETUP_VPN < /dev/tty
 if [ "$SETUP_VPN" = "y" ] || [ "$SETUP_VPN" = "Y" ]; then
   printf "  Paste your activation code (from ${UNDERLINE}https://www.expressvpn.com/setup${RESET}): "
-  read -r EXPRESSVPN_CODE
+  read -r EXPRESSVPN_CODE < /dev/tty
   if [ -n "$EXPRESSVPN_CODE" ]; then
     # Append to .env
     {
