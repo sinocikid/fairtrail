@@ -38,7 +38,12 @@ function synthesizeRawInput(
   return parts.join(' ');
 }
 
-export function ManualEntryForm({ onSubmit, onCancel, adminCurrency, cancelLabel = 'Cancel' }: ManualEntryFormProps) {
+export function ManualEntryForm({
+  onSubmit,
+  onCancel,
+  adminCurrency,
+  cancelLabel = 'Cancel',
+}: ManualEntryFormProps) {
   const [origin, setOrigin] = useState<SelectedAirport | null>(null);
   const [destination, setDestination] = useState<SelectedAirport | null>(null);
   const [dateFrom, setDateFrom] = useState('');
@@ -46,7 +51,6 @@ export function ManualEntryForm({ onSubmit, onCancel, adminCurrency, cancelLabel
   const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('round_trip');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Advanced fields
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [flexibility, setFlexibility] = useState(0);
   const [maxPrice, setMaxPrice] = useState('');
@@ -120,7 +124,6 @@ export function ManualEntryForm({ onSubmit, onCancel, adminCurrency, cancelLabel
       currency: currency || adminCurrency || detectLocaleCurrency(),
     };
 
-    // Adjust date window for flexibility
     if (flexibility > 0) {
       const from = new Date(dateFrom + 'T00:00:00');
       from.setDate(from.getDate() - flexibility);
