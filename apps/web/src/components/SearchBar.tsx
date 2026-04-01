@@ -45,7 +45,13 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
   useEffect(() => {
     fetch('/api/admin/config')
       .then((r) => r.json())
-      .then((d) => { if (d.ok && d.data.defaultCurrency) setAdminCurrency(d.data.defaultCurrency); })
+      .then((d) => {
+        if (!d.ok) return;
+        if (d.data.defaultCurrency) setAdminCurrency(d.data.defaultCurrency);
+        const searchMethod = d.data.defaultSearchMethod === 'manual' ? 'manual' : 'ai';
+        setDefaultSearchMethod(searchMethod);
+        setManualMode(searchMethod === 'manual');
+      })
       .catch(() => {});
   }, []);
 
@@ -68,6 +74,7 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
   const [createdTrackers, setCreatedTrackers] = useState<CreatedTracker[] | null>(null);
 
   // Manual entry mode
+  const [defaultSearchMethod, setDefaultSearchMethod] = useState<'ai' | 'manual'>('ai');
   const [manualMode, setManualMode] = useState(false);
   const [manualRawInput, setManualRawInput] = useState('');
 
@@ -272,7 +279,7 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
     setPreviewRoutes(null);
     setPreviewLoading(false);
     setCreatedTrackers(null);
-    setManualMode(false);
+    setManualMode(defaultSearchMethod === 'manual');
     setManualRawInput('');
     setVpnCountries([]);
     inputRef.current?.focus();
@@ -294,6 +301,7 @@ export function SearchBar({ initialQuery }: { initialQuery?: string } = {}) {
           }}
           onCancel={() => setManualMode(false)}
           adminCurrency={adminCurrency}
+          cancelLabel="Use AI search"
         />
       ) : (
         <>
