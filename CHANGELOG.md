@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.2] - 2026-04-05
+
+### Added
+- **Server-wide theming**: new themes with persistence across instances
+- **Preview run system**: flight search with status tracking, request hashing, and timeout management
+- **Airport combobox**: searchable airport picker replaces manual code/city fields in the entry form
+- **Admin default search method**: configure AI or manual as the default search mode
+- **Multi-arch Docker builds**: GitHub Actions builds both amd64 + arm64 images
+
+### Fixed
+- Edit button on confirmation card no longer clears manually entered data (#46)
+- Flexibility date range no longer double-expands on re-submit after editing
+- Theme selection and persistence across instances
+- Search method state management in SearchBar
+- Em dashes replaced with hyphens in airport combobox display
+- VPN prompt skipped in non-interactive mode (`FAIRTRAIL_YES=1`)
+- Install script missing variables and TTY handling for VPN prompts
+
 ## [0.4.1] - 2026-03-31
 
 ### Added
