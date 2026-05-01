@@ -5,7 +5,7 @@
 
 services:
   db:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: fairtrail
@@ -24,7 +24,7 @@ services:
   # Redis is optional — improves performance with response caching.
   # Comment out this service and unset REDIS_URL in .env to run without it.
   redis:
-    image: redis:7-alpine
+    image: docker.io/library/redis:7-alpine
     restart: unless-stopped
     volumes:
       - redisdata:/data
