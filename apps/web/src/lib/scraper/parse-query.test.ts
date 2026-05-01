@@ -296,6 +296,62 @@ describe('parseFlightQuery', () => {
     expect(response.parsed?.currency).toBeNull();
   });
 
+  it('extracts maxDurationHours when phrased as "duration under N hours"', async () => {
+    mockExtract.mockResolvedValue({
+      content: makeLlmResponse({
+        confidence: 'high',
+        ambiguities: [],
+        parsed: {
+          origins: [{ code: 'LAX', name: 'Los Angeles' }],
+          destinations: [{ code: 'IST', name: 'Istanbul' }],
+          dateFrom: '2026-05-20',
+          dateTo: '2026-05-30',
+          flexibility: 0,
+          maxPrice: 1000,
+          maxStops: null,
+          maxDurationHours: 20,
+          preferredAirlines: [],
+          timePreference: 'any',
+          cabinClass: 'economy',
+          tripType: 'round_trip',
+          currency: 'USD',
+        },
+      }),
+      usage: { inputTokens: 120, outputTokens: 60 },
+    });
+
+    const { response } = await parseFlightQuery('LAX to IST 5/20 to 5/30 with duration under 20 hours and price under $1000');
+    expect(response.parsed?.maxDurationHours).toBe(20);
+    expect(response.parsed?.maxPrice).toBe(1000);
+  });
+
+  it('returns null maxDurationHours when not mentioned', async () => {
+    mockExtract.mockResolvedValue({
+      content: makeLlmResponse({
+        confidence: 'high',
+        ambiguities: [],
+        parsed: {
+          origins: [{ code: 'JFK', name: 'New York JFK' }],
+          destinations: [{ code: 'LAX', name: 'Los Angeles' }],
+          dateFrom: '2026-06-15',
+          dateTo: '2026-06-22',
+          flexibility: 0,
+          maxPrice: null,
+          maxStops: null,
+          preferredAirlines: [],
+          timePreference: 'any',
+          cabinClass: 'economy',
+          tripType: 'round_trip',
+          currency: null,
+        },
+      }),
+      usage: { inputTokens: 100, outputTokens: 50 },
+    });
+
+    const { response } = await parseFlightQuery('JFK to LAX June 15-22');
+    expect(response.parsed?.maxDurationHours).toBeNull();
+  });
+
   it('throws when llm returns no JSON', async () => {
     mockExtract.mockResolvedValue({
       content: 'Sorry, I cannot parse that query.',

@@ -35,7 +35,7 @@ interface ScrapeResult {
 /** Scrape a single query for a single country pass (local or VPN). */
 async function scrapeQueryForCountry(
   queryId: string,
-  query: { origin: string; destination: string; preferredAirlines: string[]; maxPrice: number | null; maxStops: number | null; timePreference: string; cabinClass: string },
+  query: { origin: string; destination: string; preferredAirlines: string[]; maxPrice: number | null; maxStops: number | null; maxDurationHours: number | null; timePreference: string; cabinClass: string },
   searchParams: import('./navigate').FlightSearchParams,
   config: { provider?: string; model?: string } | null,
   vpnCountry: string | null,
@@ -52,6 +52,7 @@ async function scrapeQueryForCountry(
   const filters = {
     maxPrice: query.maxPrice,
     maxStops: query.maxStops,
+    maxDurationHours: query.maxDurationHours,
     preferredAirlines: query.preferredAirlines,
     timePreference: query.timePreference,
     cabinClass: query.cabinClass,

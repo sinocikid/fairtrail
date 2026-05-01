@@ -33,6 +33,7 @@ interface ScrapeRouteParams {
   tripType: string;
   maxPrice: number | null;
   maxStops: number | null;
+  maxDurationHours: number | null;
   preferredAirlines: string[];
   timePreference: string;
   currency: string | null;
@@ -47,6 +48,7 @@ async function scrapeRoute(params: ScrapeRouteParams): Promise<PriceData[]> {
   const filters = {
     maxPrice: params.maxPrice,
     maxStops: params.maxStops,
+    maxDurationHours: params.maxDurationHours,
     preferredAirlines: airlines,
     timePreference: params.timePreference,
     cabinClass,
@@ -205,6 +207,7 @@ export async function previewFlights({ parsed, onProgress }: PreviewParams): Pro
         tripType: parsed.tripType || 'round_trip',
         maxPrice: parsed.maxPrice,
         maxStops: parsed.maxStops,
+        maxDurationHours: parsed.maxDurationHours,
         preferredAirlines: parsed.preferredAirlines,
         timePreference: parsed.timePreference || 'any',
         currency: parsed.currency,

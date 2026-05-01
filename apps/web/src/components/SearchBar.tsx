@@ -352,6 +352,7 @@ export function SearchBar({
           flexibility: parsed.flexibility,
           maxPrice: parsed.maxPrice,
           maxStops: parsed.maxStops,
+          maxDurationHours: parsed.maxDurationHours ?? null,
           preferredAirlines: parsed.preferredAirlines,
           timePreference: parsed.timePreference,
           currency: parsed.currency,

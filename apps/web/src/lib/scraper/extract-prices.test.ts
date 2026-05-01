@@ -42,7 +42,7 @@ describe('extractPrices', () => {
       '<html>loading...</html>',
       'https://flights.google.com',
       '2026-06-15',
-      { maxPrice: null, maxStops: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+      { maxPrice: null, maxStops: null, maxDurationHours: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
       10,
       false,
     );
@@ -170,7 +170,7 @@ describe('extractPrices', () => {
     });
 
     await extractPrices('page content', 'https://flights.google.com', '2026-06-15',
-      { maxPrice: null, maxStops: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+      { maxPrice: null, maxStops: null, maxDurationHours: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
       10, true, 'google_flights', null
     );
 
@@ -187,7 +187,7 @@ describe('extractPrices', () => {
     });
 
     await extractPrices('page content', 'https://flights.google.com', '2026-06-15',
-      { maxPrice: null, maxStops: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+      { maxPrice: null, maxStops: null, maxDurationHours: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
       10, true, 'google_flights', 'EUR'
     );
 
@@ -206,6 +206,56 @@ describe('extractPrices', () => {
     await expect(
       extractPrices('content', 'https://example.com', '2026-06-15')
     ).rejects.toThrow('Unknown extraction provider');
+  });
+
+  it('filters out flights exceeding maxDurationHours', async () => {
+    mockExtract.mockResolvedValue({
+      content: JSON.stringify([
+        { travelDate: '2026-06-15', price: 500, currency: 'USD', airline: 'Delta', bookingUrl: '', stops: 0, duration: '11h 20m', departureTime: '10:00 AM', arrivalTime: '9:20 PM', seatsLeft: null, flightNumber: 'DL 1' },
+        { travelDate: '2026-06-15', price: 600, currency: 'USD', airline: 'United', bookingUrl: '', stops: 1, duration: '21h 30m', departureTime: '8:00 AM', arrivalTime: '5:30 AM', seatsLeft: null, flightNumber: 'UA 2' },
+        { travelDate: '2026-06-15', price: 450, currency: 'USD', airline: 'Alaska', bookingUrl: '', stops: 0, duration: '8h', departureTime: '6:00 AM', arrivalTime: '2:00 PM', seatsLeft: null, flightNumber: 'AS 3' },
+      ]),
+      usage: { inputTokens: 500, outputTokens: 100 },
+    });
+
+    const result = await extractPrices(
+      'page', 'https://flights.google.com', '2026-06-15',
+      { maxPrice: null, maxStops: null, maxDurationHours: 12, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+    );
+    expect(result.prices).toHaveLength(2);
+    expect(result.prices.map((p) => p.flightNumber).sort()).toEqual(['AS 3', 'DL 1']);
+  });
+
+  it('returns all_filtered_out when duration filter empties an otherwise valid result', async () => {
+    mockExtract.mockResolvedValue({
+      content: JSON.stringify([
+        { travelDate: '2026-06-15', price: 500, currency: 'USD', airline: 'Delta', bookingUrl: '', stops: 0, duration: '15h', departureTime: null, arrivalTime: null, seatsLeft: null, flightNumber: 'DL 1' },
+        { travelDate: '2026-06-15', price: 600, currency: 'USD', airline: 'United', bookingUrl: '', stops: 1, duration: '20h', departureTime: null, arrivalTime: null, seatsLeft: null, flightNumber: 'UA 2' },
+      ]),
+      usage: { inputTokens: 500, outputTokens: 100 },
+    });
+
+    const result = await extractPrices(
+      'page', 'https://flights.google.com', '2026-06-15',
+      { maxPrice: null, maxStops: null, maxDurationHours: 10, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+    );
+    expect(result.prices).toEqual([]);
+    expect(result.failureReason).toBe('all_filtered_out');
+  });
+
+  it('keeps flights with unparseable duration when maxDurationHours is set', async () => {
+    mockExtract.mockResolvedValue({
+      content: JSON.stringify([
+        { travelDate: '2026-06-15', price: 500, currency: 'USD', airline: 'Delta', bookingUrl: '', stops: 0, duration: null, departureTime: null, arrivalTime: null, seatsLeft: null, flightNumber: 'DL 1' },
+      ]),
+      usage: { inputTokens: 500, outputTokens: 100 },
+    });
+
+    const result = await extractPrices(
+      'page', 'https://flights.google.com', '2026-06-15',
+      { maxPrice: null, maxStops: null, maxDurationHours: 10, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+    );
+    expect(result.prices).toHaveLength(1);
   });
 
   it('propagates flightNumber from llm output', async () => {

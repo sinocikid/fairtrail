@@ -19,6 +19,7 @@ export interface ParsedQuery {
   flexibility: number;
   maxPrice: number | null;
   maxStops: number | null;
+  maxDurationHours: number | null;
   preferredAirlines: string[];
   timePreference: string;
   cabinClass: string;
@@ -38,6 +39,7 @@ function hasFilters(p: ParsedQuery): boolean {
   return !!(
     p.maxPrice ||
     p.maxStops !== null ||
+    (p.maxDurationHours !== null && p.maxDurationHours > 0) ||
     p.preferredAirlines.length > 0 ||
     p.timePreference !== 'any' ||
     p.cabinClass !== 'economy'
@@ -218,6 +220,9 @@ export function ConfirmationCard({
             <span className={styles.tag}>
               {parsed.maxStops === 0 ? 'Nonstop only' : `Max ${parsed.maxStops} stop${parsed.maxStops > 1 ? 's' : ''}`}
             </span>
+          )}
+          {parsed.maxDurationHours !== null && parsed.maxDurationHours > 0 && (
+            <span className={styles.tag}>Under {parsed.maxDurationHours}h</span>
           )}
           {parsed.preferredAirlines.length > 0 && (
             <span className={styles.tag}>{parsed.preferredAirlines.join(', ')}</span>

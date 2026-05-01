@@ -1,5 +1,6 @@
 import { EXTRACTION_PROVIDERS, CLI_PROVIDERS, LOCAL_PROVIDERS, type ExtractionUsage } from './ai-registry';
 import { prisma } from '@/lib/prisma';
+import { parseDurationToMinutes } from './duration';
 import type { NavigationSource } from './navigate';
 
 export interface PriceData {
@@ -19,6 +20,7 @@ export interface PriceData {
 export interface QueryFilters {
   maxPrice: number | null;
   maxStops: number | null;
+  maxDurationHours: number | null;
   preferredAirlines: string[];
   timePreference: string;
   cabinClass: string;
@@ -121,7 +123,7 @@ export async function extractPrices(
   html: string,
   searchUrl: string,
   travelDateFallback: string,
-  filters: QueryFilters = { maxPrice: null, maxStops: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+  filters: QueryFilters = { maxPrice: null, maxStops: null, maxDurationHours: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
   maxResults: number = DEFAULT_MAX_RESULTS,
   resultsFound: boolean = true,
   source: NavigationSource = 'google_flights',
@@ -186,15 +188,30 @@ ${html}`;
   }
 
   // Filter out obviously invalid entries
-  const prices = raw.filter(
+  const validPrices = raw.filter(
     (p) => p.price > 0 && p.airline && p.airline.length > 0
   );
 
-  if (prices.length === 0) {
+  if (validPrices.length === 0) {
     console.log(`[extract] FAIL all_filtered_out — ${raw.length} raw results all invalid`);
     return { prices: [], usage: result.usage, failureReason: 'all_filtered_out' };
   }
 
-  console.log(`[extract] OK — ${prices.length} flights extracted (cheapest: $${prices[0]?.price})`);
-  return { prices, usage: result.usage };
+  // Apply server side duration filter. The LLM extracts the duration string
+  // (e.g. "11h 20m") and we parse it deterministically here so the filter is
+  // testable without the LLM and consistent across providers.
+  const durationFiltered = filters.maxDurationHours
+    ? validPrices.filter((p) => {
+        const minutes = parseDurationToMinutes(p.duration);
+        return minutes === null || minutes <= filters.maxDurationHours! * 60;
+      })
+    : validPrices;
+
+  if (durationFiltered.length === 0) {
+    console.log(`[extract] FAIL all_filtered_out — duration filter (max ${filters.maxDurationHours}h) removed all ${validPrices.length} flights`);
+    return { prices: [], usage: result.usage, failureReason: 'all_filtered_out' };
+  }
+
+  console.log(`[extract] OK — ${durationFiltered.length} flights extracted (cheapest: $${durationFiltered[0]?.price})`);
+  return { prices: durationFiltered, usage: result.usage };
 }

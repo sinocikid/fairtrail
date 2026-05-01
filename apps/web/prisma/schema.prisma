@@ -19,6 +19,7 @@ model Query {
   flexibility     Int      @default(0)
   maxPrice        Float?
   maxStops        Int?
+  maxDurationHours Int?     // optional cap on total trip duration in hours
   preferredAirlines String[] @default([])
   timePreference  String   @default("any")
   cabinClass      String   @default("economy")

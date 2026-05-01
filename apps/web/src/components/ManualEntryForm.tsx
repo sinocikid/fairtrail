@@ -147,6 +147,7 @@ export function ManualEntryForm({
       flexibility,
       maxPrice: maxPrice ? parseInt(maxPrice, 10) : null,
       maxStops: maxStops === '' ? null : parseInt(maxStops, 10),
+      maxDurationHours: null,
       preferredAirlines: airlines ? airlines.split(',').map((s) => s.trim()).filter(Boolean) : [],
       timePreference,
       cabinClass,
