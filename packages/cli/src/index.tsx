@@ -1,6 +1,9 @@
 #!/usr/bin/env node
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { program } = require('commander');
+// commander 13 ships an ESM entry (esm.mjs) that re-exports `program` as a
+// named binding from the CJS index. There is no default export, so use the
+// named import. Node 22 in production resolves commander v13 from the
+// workspace local node_modules (see Dockerfile), not the root v2 hoist.
+import { program } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 import { App } from './app.js';
