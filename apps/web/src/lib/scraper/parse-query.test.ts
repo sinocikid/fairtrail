@@ -315,6 +315,199 @@ describe('parseFlightQuery', () => {
     await expect(parseFlightQuery('JFK to LAX')).rejects.toThrow('Unknown extraction provider');
   });
 
+  it('keeps round-trip with two pinned legs at high confidence even when trip spans 21 days', async () => {
+    mockExtract.mockResolvedValue({
+      content: makeLlmResponse({
+        confidence: 'high',
+        ambiguities: [],
+        parsed: {
+          origins: [{ code: 'JFK', name: 'JFK' }],
+          destinations: [{ code: 'LAX', name: 'LAX' }],
+          dateFrom: '2026-03-01',
+          dateTo: '2026-03-22',
+          outboundDates: ['2026-03-01'],
+          returnDates: ['2026-03-22'],
+          flexibility: 0,
+          maxPrice: null,
+          maxStops: null,
+          preferredAirlines: [],
+          timePreference: 'any',
+          cabinClass: 'economy',
+          tripType: 'round_trip',
+          currency: 'USD',
+        },
+      }),
+      usage: { inputTokens: 100, outputTokens: 50 },
+    });
+
+    const { response } = await parseFlightQuery('JFK to LAX March 1, return March 22');
+    expect(response.confidence).toBe('high');
+    expect(response.dateSpanDays).toBe(21);
+    expect(response.ambiguities).toEqual([]);
+  });
+
+  it('downgrades round-trip with wide outbound window and names the outbound leg', async () => {
+    mockExtract.mockResolvedValue({
+      content: makeLlmResponse({
+        confidence: 'high',
+        ambiguities: [],
+        parsed: {
+          origins: [{ code: 'JFK', name: 'JFK' }],
+          destinations: [{ code: 'LAX', name: 'LAX' }],
+          dateFrom: '2026-03-01',
+          dateTo: '2026-03-25',
+          outboundDates: ['2026-03-01', '2026-03-11'],
+          returnDates: ['2026-03-25'],
+          flexibility: 0,
+          maxPrice: null,
+          maxStops: null,
+          preferredAirlines: [],
+          timePreference: 'any',
+          cabinClass: 'economy',
+          tripType: 'round_trip',
+          currency: 'USD',
+        },
+      }),
+      usage: { inputTokens: 100, outputTokens: 50 },
+    });
+
+    const { response } = await parseFlightQuery('JFK to LAX March 1-11 out, March 25 return');
+    expect(response.confidence).toBe('medium');
+    const outboundAmbiguity = response.ambiguities.find((a) => /outbound/i.test(a.question));
+    expect(outboundAmbiguity).toBeDefined();
+    expect(response.ambiguities.find((a) => /return/i.test(a.question))).toBeUndefined();
+  });
+
+  it('downgrades round-trip with wide return window and names the return leg', async () => {
+    mockExtract.mockResolvedValue({
+      content: makeLlmResponse({
+        confidence: 'high',
+        ambiguities: [],
+        parsed: {
+          origins: [{ code: 'JFK', name: 'JFK' }],
+          destinations: [{ code: 'LAX', name: 'LAX' }],
+          dateFrom: '2026-03-01',
+          dateTo: '2026-03-25',
+          outboundDates: ['2026-03-01'],
+          returnDates: ['2026-03-15', '2026-03-27'],
+          flexibility: 0,
+          maxPrice: null,
+          maxStops: null,
+          preferredAirlines: [],
+          timePreference: 'any',
+          cabinClass: 'economy',
+          tripType: 'round_trip',
+          currency: 'USD',
+        },
+      }),
+      usage: { inputTokens: 100, outputTokens: 50 },
+    });
+
+    const { response } = await parseFlightQuery('JFK to LAX March 1, return March 15-27');
+    expect(response.confidence).toBe('medium');
+    const returnAmbiguity = response.ambiguities.find((a) => /return/i.test(a.question));
+    expect(returnAmbiguity).toBeDefined();
+    expect(response.ambiguities.find((a) => /outbound/i.test(a.question))).toBeUndefined();
+  });
+
+  it('caps each leg at 4 dates when both legs are ranges', async () => {
+    mockExtract.mockResolvedValue({
+      content: makeLlmResponse({
+        confidence: 'high',
+        ambiguities: [],
+        parsed: {
+          origins: [{ code: 'JFK', name: 'JFK' }],
+          destinations: [{ code: 'LAX', name: 'LAX' }],
+          dateFrom: '2026-03-01',
+          dateTo: '2026-03-25',
+          outboundDates: ['2026-03-01', '2026-03-02', '2026-03-03', '2026-03-04', '2026-03-05', '2026-03-06'],
+          returnDates: ['2026-03-20', '2026-03-21', '2026-03-22', '2026-03-23', '2026-03-24', '2026-03-25'],
+          flexibility: 0,
+          maxPrice: null,
+          maxStops: null,
+          preferredAirlines: [],
+          timePreference: 'any',
+          cabinClass: 'economy',
+          tripType: 'round_trip',
+          currency: 'USD',
+        },
+      }),
+      usage: { inputTokens: 100, outputTokens: 50 },
+    });
+
+    const { response } = await parseFlightQuery('JFK to LAX March 1-6 out, March 20-25 return');
+    expect(response.parsed?.outboundDates).toHaveLength(4);
+    expect(response.parsed?.returnDates).toHaveLength(4);
+  });
+
+  it('keeps 6-date cap when only one leg is a range', async () => {
+    mockExtract.mockResolvedValue({
+      content: makeLlmResponse({
+        confidence: 'high',
+        ambiguities: [],
+        parsed: {
+          origins: [{ code: 'JFK', name: 'JFK' }],
+          destinations: [{ code: 'LAX', name: 'LAX' }],
+          dateFrom: '2026-03-01',
+          dateTo: '2026-03-25',
+          outboundDates: ['2026-03-01', '2026-03-02', '2026-03-03', '2026-03-04', '2026-03-05', '2026-03-06', '2026-03-07'],
+          returnDates: ['2026-03-25'],
+          flexibility: 0,
+          maxPrice: null,
+          maxStops: null,
+          preferredAirlines: [],
+          timePreference: 'any',
+          cabinClass: 'economy',
+          tripType: 'round_trip',
+          currency: 'USD',
+        },
+      }),
+      usage: { inputTokens: 100, outputTokens: 50 },
+    });
+
+    const { response } = await parseFlightQuery('JFK to LAX any of first week, return March 25');
+    expect(response.parsed?.outboundDates).toHaveLength(6);
+    expect(response.parsed?.returnDates).toHaveLength(1);
+  });
+
+  it('caps conversation history sent to the LLM at the most recent 6 turns', async () => {
+    mockExtract.mockResolvedValue({
+      content: makeLlmResponse({
+        confidence: 'high',
+        ambiguities: [],
+        parsed: {
+          origins: [{ code: 'JFK', name: 'JFK' }],
+          destinations: [{ code: 'LAX', name: 'LAX' }],
+          dateFrom: '2026-06-15',
+          dateTo: '2026-06-22',
+          flexibility: 0,
+          maxPrice: null,
+          maxStops: null,
+          preferredAirlines: [],
+          timePreference: 'any',
+          cabinClass: 'economy',
+          tripType: 'round_trip',
+          currency: 'USD',
+        },
+      }),
+      usage: { inputTokens: 100, outputTokens: 50 },
+    });
+
+    const longHistory = Array.from({ length: 12 }, (_, i) => ({
+      role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: `turn-${i}`,
+    }));
+
+    await parseFlightQuery('latest answer', longHistory);
+
+    const promptArg = mockExtract.mock.calls[0]?.[3] as string;
+    expect(promptArg).toContain('turn-11');
+    expect(promptArg).toContain('turn-6');
+    expect(promptArg).not.toContain('turn-5');
+    expect(promptArg).not.toContain('turn-0');
+    expect(promptArg.endsWith('User: latest answer')).toBe(true);
+  });
+
   it('throws when api key is missing', async () => {
     const { prisma } = await import('@/lib/prisma');
     vi.mocked(prisma.extractionConfig.findFirst).mockResolvedValueOnce({
