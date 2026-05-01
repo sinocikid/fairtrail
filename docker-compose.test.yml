@@ -15,7 +15,7 @@ services:
       - "127.0.0.1:6399:6379"
 
   llmock:
-    image: node:22-alpine
+    image: docker.io/library/node:22-alpine
     restart: "no"
     volumes:
       - ./scripts/llmock-server.mjs:/app/llmock-server.mjs:ro

@@ -245,7 +245,7 @@ fi
 cat > "$FAIRTRAIL_DIR/docker-compose.yml" << COMPOSE
 services:
   db:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: fairtrail
@@ -262,7 +262,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: docker.io/library/redis:7-alpine
     restart: unless-stopped
     volumes:
       - redisdata:/data
@@ -552,7 +552,7 @@ if [ "$SETUP_VPN" = "y" ] || [ "$SETUP_VPN" = "Y" ]; then
     cat > "$FAIRTRAIL_DIR/docker-compose.vpn.yml" << 'VPNYAML'
 services:
   expressvpn:
-    image: misioslav/expressvpn:latest
+    image: docker.io/misioslav/expressvpn:latest
     container_name: fairtrail-expressvpn
     restart: unless-stopped
     cap_add:

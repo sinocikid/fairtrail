@@ -16,7 +16,7 @@
 
 services:
   expressvpn:
-    image: misioslav/expressvpn:latest
+    image: docker.io/misioslav/expressvpn:latest
     container_name: fairtrail-expressvpn
     restart: unless-stopped
     cap_add:

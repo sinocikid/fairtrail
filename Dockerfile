@@ -1,4 +1,4 @@
-FROM node:22-alpine AS deps
+FROM docker.io/library/node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat openssl python3 make g++
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -8,7 +8,7 @@ RUN npm ci --loglevel=error
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 
 # Production-only deps (no devDependencies)
-FROM node:22-alpine AS proddeps
+FROM docker.io/library/node:22-alpine AS proddeps
 RUN apk add --no-cache libc6-compat openssl python3 make g++
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -17,7 +17,7 @@ COPY apps/web/prisma ./apps/web/prisma/
 RUN npm ci --omit=dev --loglevel=error
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 
-FROM node:22-alpine AS builder
+FROM docker.io/library/node:22-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl python3 make g++
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -28,7 +28,7 @@ ENV NODE_ENV=production
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 RUN npm run build --workspace=@fairtrail/web
 
-FROM node:22-alpine AS runner
+FROM docker.io/library/node:22-alpine AS runner
 RUN apk add --no-cache libc6-compat openssl chromium
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
