@@ -28,6 +28,7 @@ function makePartial(): ParsedFlightQuery {
     flexibility: 0,
     maxPrice: null,
     maxStops: null,
+    maxDurationHours: null,
     preferredAirlines: [],
     timePreference: 'any',
     cabinClass: 'economy',

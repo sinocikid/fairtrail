@@ -3,6 +3,7 @@ RUN apk add --no-cache libc6-compat openssl python3 make g++
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/
+COPY packages/cli/package.json packages/cli/
 COPY apps/web/prisma ./apps/web/prisma/
 RUN npm ci --loglevel=error
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
@@ -13,6 +14,7 @@ RUN apk add --no-cache libc6-compat openssl python3 make g++
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/
+COPY packages/cli/package.json packages/cli/
 COPY apps/web/prisma ./apps/web/prisma/
 RUN npm ci --omit=dev --loglevel=error
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
