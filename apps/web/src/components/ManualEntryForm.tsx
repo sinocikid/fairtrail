@@ -15,6 +15,7 @@ export interface ManualFormValues {
   flexibility: number;
   maxPrice: string;
   maxStops: string;
+  maxDuration: string;
   airlines: string;
   timePreference: 'any' | 'morning' | 'afternoon' | 'evening' | 'redeye';
   cabinClass: 'economy' | 'premium_economy' | 'business' | 'first';
@@ -73,6 +74,7 @@ export function ManualEntryForm({
     iv.flexibility > 0 ||
     iv.maxPrice ||
     iv.maxStops ||
+    iv.maxDuration ||
     iv.airlines ||
     iv.timePreference !== 'any' ||
     iv.cabinClass !== 'economy'
@@ -81,6 +83,7 @@ export function ManualEntryForm({
   const [flexibility, setFlexibility] = useState(iv?.flexibility ?? 0);
   const [maxPrice, setMaxPrice] = useState(iv?.maxPrice ?? '');
   const [maxStops, setMaxStops] = useState(iv?.maxStops ?? '');
+  const [maxDuration, setMaxDuration] = useState(iv?.maxDuration ?? '');
   const [airlines, setAirlines] = useState(iv?.airlines ?? '');
   const [timePreference, setTimePreference] = useState<'any' | 'morning' | 'afternoon' | 'evening' | 'redeye'>(
     iv?.timePreference ?? 'any',
@@ -120,6 +123,12 @@ export function ManualEntryForm({
         errors.dateTo = 'Return must be after departure';
       }
     }
+    if (maxDuration) {
+      const n = parseInt(maxDuration, 10);
+      if (!Number.isInteger(n) || n < 1 || n > 48) {
+        errors.maxDuration = 'Enter a value between 1 and 48 hours';
+      }
+    }
 
     return Object.keys(errors).length > 0 ? errors : null;
   };
@@ -147,7 +156,7 @@ export function ManualEntryForm({
       flexibility,
       maxPrice: maxPrice ? parseInt(maxPrice, 10) : null,
       maxStops: maxStops === '' ? null : parseInt(maxStops, 10),
-      maxDurationHours: null,
+      maxDurationHours: maxDuration ? parseInt(maxDuration, 10) : null,
       preferredAirlines: airlines ? airlines.split(',').map((s) => s.trim()).filter(Boolean) : [],
       timePreference,
       cabinClass,
@@ -174,6 +183,7 @@ export function ManualEntryForm({
       flexibility,
       maxPrice,
       maxStops,
+      maxDuration,
       airlines,
       timePreference,
       cabinClass,
@@ -306,17 +316,18 @@ export function ManualEntryForm({
 
           <div className={styles.fieldRow}>
             <div className={styles.field}>
-              <label className={styles.label} htmlFor="me-max-stops">Max stops</label>
+              <label className={styles.label} htmlFor="me-time">Time preference</label>
               <select
-                id="me-max-stops"
+                id="me-time"
                 className={styles.input}
-                value={maxStops}
-                onChange={(e) => setMaxStops(e.target.value)}
+                value={timePreference}
+                onChange={(e) => setTimePreference(e.target.value as typeof timePreference)}
               >
-                <option value="">Any</option>
-                <option value="0">Nonstop only</option>
-                <option value="1">Max 1 stop</option>
-                <option value="2">Max 2 stops</option>
+                <option value="any">Any</option>
+                <option value="morning">Morning</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+                <option value="redeye">Red-eye</option>
               </select>
             </div>
             <div className={styles.field}>
@@ -337,20 +348,37 @@ export function ManualEntryForm({
 
           <div className={styles.fieldRow}>
             <div className={styles.field}>
-              <label className={styles.label} htmlFor="me-time">Time preference</label>
+              <label className={styles.label} htmlFor="me-max-stops">Max stops</label>
               <select
-                id="me-time"
+                id="me-max-stops"
                 className={styles.input}
-                value={timePreference}
-                onChange={(e) => setTimePreference(e.target.value as typeof timePreference)}
+                value={maxStops}
+                onChange={(e) => setMaxStops(e.target.value)}
               >
-                <option value="any">Any</option>
-                <option value="morning">Morning</option>
-                <option value="afternoon">Afternoon</option>
-                <option value="evening">Evening</option>
-                <option value="redeye">Red-eye</option>
+                <option value="">Any</option>
+                <option value="0">Nonstop only</option>
+                <option value="1">Max 1 stop</option>
+                <option value="2">Max 2 stops</option>
               </select>
             </div>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="me-max-duration">Max trip duration (hours)</label>
+              <input
+                id="me-max-duration"
+                className={`${styles.input} ${fieldErrors.maxDuration ? styles.inputError : ''}`}
+                type="number"
+                min={1}
+                max={48}
+                placeholder="No limit"
+                value={maxDuration}
+                onChange={(e) => { setMaxDuration(e.target.value); clearError('maxDuration'); }}
+                aria-invalid={!!fieldErrors.maxDuration}
+              />
+              {fieldErrors.maxDuration && <span className={styles.errorText}>{fieldErrors.maxDuration}</span>}
+            </div>
+          </div>
+
+          <div className={styles.fieldRow}>
             <div className={styles.field}>
               <label className={styles.label} htmlFor="me-currency">Currency</label>
               <input
@@ -363,6 +391,7 @@ export function ManualEntryForm({
                 onChange={(e) => setCurrency(e.target.value.toUpperCase())}
               />
             </div>
+            <div className={styles.field} aria-hidden="true" />
           </div>
 
           <div className={styles.field}>
