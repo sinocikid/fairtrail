@@ -95,9 +95,9 @@ Multi-airport rules (same city, different airports):
 - Put the most common/major airport first in the array (it becomes the default)
 
 Confidence rules:
-- "high": clear origin, destination, and specific date(s) within 14 days span
-- "medium": mostly clear but one ambiguity (e.g., city has multiple airports, or 2-3 possible dates mentioned)
-- "low": too vague (no dates, unclear cities, date range > 14 days, or missing origin/destination)
+- "high": clear origin, destination, and specific date(s) within 14 days span. For round trips with both legs pinned (one or a few dates per leg, each leg's window ≤ 7 days), the trip itself can be any length — only the per-leg flexibility matters.
+- "medium": mostly clear but one ambiguity (e.g., city has multiple airports, 2-3 possible dates mentioned, or one leg of a round trip has a window > 7 days while the other is pinned)
+- "low": too vague (no dates, unclear cities, date range > 14 days for one-way, both legs of a round trip wide open, or missing origin/destination)
 
 When confidence is "medium" or "low":
 - Still fill in "parsed" with your best guess for ALL fields you can determine
@@ -106,6 +106,9 @@ When confidence is "medium" or "low":
   - { "field": "date", "question": "Did you mean Friday Mar 14 or Saturday Mar 15?", "options": ["Friday Mar 14", "Saturday Mar 15", "Both days"] }
   - { "field": "origin", "question": "Which New York airport?", "options": ["JFK", "EWR", "LGA"] }
   - { "field": "date", "question": "That's a 30-day window. Can you narrow it to specific dates?", "options": ["First week", "Second week", "Last week"] }
+  - { "field": "date", "question": "That's a 12-day outbound window. Pick a specific outbound date or narrow the range." }
+  - { "field": "date", "question": "That's a 9-day return window. Pick a specific return date or narrow the range." }
+  - When the issue is one specific leg of a round trip, name the leg ("outbound" or "return") in the question so the user knows which window to narrow
 
 When confidence is "high":
 - Set "ambiguities" to an empty array []
@@ -115,6 +118,7 @@ Multi-date rules:
 - "returnDates": when the user mentions SPECIFIC individual return dates (e.g., "return March 22 or March 25"), populate with each date. For one-way trips, set to null.
 - When only a single date or a continuous range is mentioned (e.g., "June 15-20", "around June 15"), leave outboundDates and returnDates as null — use dateFrom/dateTo as before.
 - For round trips: if the user says "fly March 15, return March 20", set outboundDates to ["YYYY-MM-15"] and returnDates to ["YYYY-MM-20"]. If they say "fly March 15 or 16, return March 20 or 21", set outboundDates to both departure dates and returnDates to both return dates.
+- For round trips with a RANGE on each leg (e.g. "March 1-3 out, March 22-24 return", "depart sometime D1 to D2, return sometime E1 to E2"): expand each range into the individual dates and populate outboundDates with the outbound dates and returnDates with the return dates. dateFrom is the earliest outbound date (D1), dateTo is the latest return date (E2). Confidence stays "high" as long as each leg's window is at most 7 days wide. NEVER ask the user to "narrow the window from D1 to E2" — that's the trip duration, not a flexibility ambiguity.
 - Maximum 6 dates per array. If the user mentions more, pick the 6 most likely.
 
 Parsing rules:
@@ -137,6 +141,19 @@ Parsing rules:
 - Return ONLY the JSON object, no markdown, no explanation`;
 }
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const LEG_WINDOW_LIMIT_DAYS = 7;
+const SINGLE_RANGE_LIMIT_DAYS = 14;
+const CONVERSATION_HISTORY_LIMIT = 6;
+
+/** Span in days between the earliest and latest date in a sorted ISO date array. */
+function legSpanDays(dates: string[] | undefined): number {
+  if (!dates || dates.length < 2) return 0;
+  const first = new Date(dates[0]!).getTime();
+  const last = new Date(dates[dates.length - 1]!).getTime();
+  return Math.ceil((last - first) / MS_PER_DAY);
+}
+
 /** Normalize LLM response to always have origins/destinations arrays + derived single fields */
 function normalizeAirports(parsed: Record<string, unknown>): ParsedFlightQuery {
   const p = parsed as Record<string, unknown>;
@@ -157,13 +174,19 @@ function normalizeAirports(parsed: Record<string, unknown>): ParsedFlightQuery {
     destinations = [{ code: p.destination as string, name: (p.destinationName as string) || p.destination as string }];
   }
 
-  // Normalize outboundDates / returnDates — validate ISO date strings, cap at 6
-  const outboundDates = Array.isArray(p.outboundDates)
-    ? (p.outboundDates as string[]).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 6).sort()
+  // Normalize outboundDates / returnDates — validate ISO date strings, sort, then cap.
+  // When both legs are ranges (>1 date each), cap at 4 per leg to stay under the
+  // scrape combo budget (preview/route.ts: combos × dates ≤ 24). Otherwise cap at 6.
+  const rawOutbound = Array.isArray(p.outboundDates)
+    ? (p.outboundDates as string[]).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()
     : undefined;
-  const returnDates = Array.isArray(p.returnDates)
-    ? (p.returnDates as string[]).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 6).sort()
+  const rawReturn = Array.isArray(p.returnDates)
+    ? (p.returnDates as string[]).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()
     : undefined;
+  const bothLegsRanged = (rawOutbound?.length ?? 0) > 1 && (rawReturn?.length ?? 0) > 1;
+  const perLegCap = bothLegsRanged ? 4 : 6;
+  const outboundDates = rawOutbound?.slice(0, perLegCap);
+  const returnDates = rawReturn?.slice(0, perLegCap);
 
   // Derive dateFrom/dateTo from individual dates when present
   const allDates = [...(outboundDates ?? []), ...(returnDates ?? [])];
@@ -217,10 +240,12 @@ export async function parseFlightQuery(
     throw new Error(`Missing API key: ${providerConfig.envKey}`);
   }
 
-  // Build prompt with conversation history
+  // Build prompt with conversation history. Cap to the most recent turns to
+  // prevent token bloat across long clarification loops.
   let fullPrompt = rawInput;
   if (conversationHistory?.length) {
-    fullPrompt = conversationHistory
+    const recentHistory = conversationHistory.slice(-CONVERSATION_HISTORY_LIMIT);
+    fullPrompt = recentHistory
       .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
       .join('\n') + '\nUser: ' + rawInput;
   }
@@ -275,10 +300,36 @@ export async function parseFlightQuery(
   let dateSpanDays = 0;
   if (parsed) {
     dateSpanDays = Math.ceil(
-      (new Date(parsed.dateTo).getTime() - new Date(parsed.dateFrom).getTime()) / (1000 * 60 * 60 * 24)
+      (new Date(parsed.dateTo).getTime() - new Date(parsed.dateFrom).getTime()) / MS_PER_DAY
     );
 
-    if (dateSpanDays > 14 && confidence === 'high') {
+    // For round trips with specific dates on either leg, validate each leg's
+    // window separately. The trip duration (gap between outbound and return)
+    // is not a flexibility ambiguity, so we don't flag it.
+    const hasLegArrays =
+      (parsed.outboundDates?.length ?? 0) > 0 || (parsed.returnDates?.length ?? 0) > 0;
+    const isRoundTripWithLegs = parsed.tripType === 'round_trip' && hasLegArrays;
+
+    if (isRoundTripWithLegs) {
+      if (confidence === 'high') {
+        const outboundSpan = legSpanDays(parsed.outboundDates);
+        const returnSpan = legSpanDays(parsed.returnDates);
+        if (outboundSpan > LEG_WINDOW_LIMIT_DAYS) {
+          confidence = 'medium';
+          ambiguities.push({
+            field: 'date',
+            question: `That's a ${outboundSpan}-day outbound window. Pick a specific outbound date or narrow the range.`,
+          });
+        }
+        if (returnSpan > LEG_WINDOW_LIMIT_DAYS) {
+          confidence = 'medium';
+          ambiguities.push({
+            field: 'date',
+            question: `That's a ${returnSpan}-day return window. Pick a specific return date or narrow the range.`,
+          });
+        }
+      }
+    } else if (dateSpanDays > SINGLE_RANGE_LIMIT_DAYS && confidence === 'high') {
       confidence = 'medium';
       ambiguities.push({
         field: 'date',

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ParseAmbiguity, ParsedFlightQuery } from '@/lib/scraper/parse-query';
+import type { ConversationMessage } from '@/lib/clarification-types';
 import type { PreviewRunStatusPayload } from '@/lib/preview-run';
 import type { PriceData } from '@/lib/scraper/extract-prices';
 import { detectLocaleCurrency } from '@/lib/currency';
@@ -29,11 +30,6 @@ interface SavedPreviewState {
   manualRawInput: string;
   vpnCountries: string[];
   startedAt: number;
-}
-
-interface ConversationMessage {
-  role: 'user' | 'assistant';
-  content: string;
 }
 
 function playNotificationSound() {
@@ -179,10 +175,16 @@ export function SearchBar({
         setAmbiguities(nextAmbiguities || []);
         setPartialParsed(nextParsed);
 
-        const assistantMsg =
-          nextAmbiguities?.map((ambiguity: ParseAmbiguity) => ambiguity.question).join(' ') ||
-          'Can you be more specific?';
-        setConversation((prev) => [...prev, { role: 'assistant', content: assistantMsg }]);
+        // Store one assistant turn per question so the stacked dialog renders
+        // each as its own bubble. Fall back to a single placeholder turn when
+        // the LLM gave no questions.
+        const assistantTurns: ConversationMessage[] = nextAmbiguities?.length
+          ? nextAmbiguities.map((ambiguity: ParseAmbiguity) => ({
+              role: 'assistant' as const,
+              content: ambiguity.question,
+            }))
+          : [{ role: 'assistant' as const, content: 'Can you be more specific?' }];
+        setConversation((prev) => [...prev, ...assistantTurns]);
       }
       return true;
     } catch {
@@ -282,6 +284,9 @@ export function SearchBar({
   const handleAnswer = useCallback(async (answer: string): Promise<boolean> => {
     const newConversation: ConversationMessage[] = [...conversation, { role: 'user', content: answer }];
     setConversation(newConversation);
+    // Pass the updated history (including the just-added user turn minus the
+    // raw answer string itself, since doParse re-appends it) so the LLM sees
+    // every prior turn — not the stale pre-answer slice.
     return doParse(answer, conversation);
   }, [conversation, doParse]);
 
@@ -608,6 +613,7 @@ export function SearchBar({
         <ClarificationCard
           ambiguities={ambiguities}
           partialParsed={partialParsed}
+          conversation={conversation}
           onAnswer={handleAnswer}
           onReset={handleReset}
           loading={loading}

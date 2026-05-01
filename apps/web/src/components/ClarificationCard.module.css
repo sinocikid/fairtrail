@@ -49,6 +49,50 @@
   margin-left: 0.25rem;
 }
 
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.assistantTurn {
+  background: var(--elevated);
+  align-self: flex-start;
+  max-width: 90%;
+}
+
+.userTurn {
+  background: var(--accent-glow);
+  align-self: flex-end;
+  max-width: 90%;
+}
+
+.turnLabel {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.turnContent {
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
 .questions {
   display: flex;
   flex-direction: column;
