@@ -13,6 +13,7 @@ export interface PriceData {
   departureTime: string | null; // e.g. "10:25 AM"
   arrivalTime: string | null; // e.g. "4:45 PM"
   seatsLeft: number | null; // e.g. 3 when "3 seats left" shown
+  flightNumber: string | null; // e.g. "DL 345"
 }
 
 export interface QueryFilters {
@@ -81,7 +82,8 @@ Return ONLY valid JSON — an array of UP TO ${maxResults} objects with this exa
     "duration": "11h 20m",
     "departureTime": "10:25 AM",
     "arrivalTime": "4:45 PM",
-    "seatsLeft": 3
+    "seatsLeft": 3,
+    "flightNumber": "DL 345"
   }
 ]
 ${filterSection}
@@ -96,6 +98,7 @@ ${bookingUrlRule}
 - departureTime: the departure time as shown (e.g. "10:25 AM", "7:50 PM"). Use null if not visible
 - arrivalTime: the arrival time as shown (e.g. "4:45 PM", "11:30 AM"). Use null if not visible
 - seatsLeft: if the page shows "N seats left" or "N seats left at this price", extract the number. Use null if not shown
+- flightNumber: extract the carrier code plus number when shown (e.g. "DL 345", "AA 1102", "TK 32"). Use null if only the airline name is visible without a number
 - If the travel date is not clearly visible per result, use the search date provided
 - Prefer variety: if multiple airlines are available, include at least one from each (up to the ${maxResults} limit)
 - Return ONLY the JSON array, no markdown, no explanation

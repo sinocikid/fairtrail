@@ -18,6 +18,7 @@ interface RouteInput {
     bookingUrl: string | null;
     stops?: number;
     duration?: string | null;
+    flightNumber?: string | null;
   }>;
 }
 
@@ -158,6 +159,7 @@ export async function POST(request: NextRequest) {
           bookingUrl: f.bookingUrl || '',
           stops: f.stops ?? 0,
           duration: f.duration ?? null,
+          flightNumber: f.flightNumber ?? null,
         })),
       });
     }

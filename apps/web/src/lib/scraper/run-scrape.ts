@@ -145,12 +145,19 @@ async function scrapeQueryForCountry(
     },
   });
 
-  // Build stable flightId for each price
+  // Build stable flightId for each price. When the LLM extracted a real flight
+  // number, prefer that over the departure time so codeshares at the same
+  // minute do not collide. flightIdLegacy carries the time-only form for
+  // matching against rows persisted before this rollout (kept in memory only,
+  // never written to the DB).
   const withFlightIds = allPrices.map((p) => {
     const timePart = (p.departureTime ?? '').replace(/[^0-9]/g, '') || '0000';
     const airlinePart = p.airline.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
-    const flightId = `${airlinePart}-${timePart}-${query.origin}-${query.destination}-${p.travelDate}`;
-    return { ...p, flightId };
+    const flightNumberPart = (p.flightNumber ?? '').replace(/\s+/g, '').toUpperCase();
+    const idTail = flightNumberPart || timePart;
+    const flightId = `${airlinePart}-${idTail}-${query.origin}-${query.destination}-${p.travelDate}`;
+    const flightIdLegacy = `${airlinePart}-${timePart}-${query.origin}-${query.destination}-${p.travelDate}`;
+    return { ...p, flightId, flightIdLegacy };
   });
 
   // Sold-out detection: scope by BOTH queryId AND vpnCountry to avoid cross-country false positives
@@ -162,12 +169,19 @@ async function scrapeQueryForCountry(
     },
     orderBy: { scrapedAt: 'desc' },
     distinct: ['flightId'],
-    select: { flightId: true, price: true, airline: true, travelDate: true, currency: true, bookingUrl: true, stops: true, duration: true, departureTime: true, arrivalTime: true, status: true },
+    select: { flightId: true, price: true, airline: true, travelDate: true, currency: true, bookingUrl: true, stops: true, duration: true, departureTime: true, arrivalTime: true, flightNumber: true, status: true },
   });
 
+  // Match prior rows against BOTH the new and the legacy id forms so the
+  // rollout does not flag every existing flight as sold out when scraping
+  // resumes.
   const currentFlightIds = new Set(withFlightIds.map((p) => p.flightId));
+  const currentLegacyIds = new Set(withFlightIds.map((p) => p.flightIdLegacy));
   const soldOutSnapshots = previousSnapshots
-    .filter((prev) => prev.flightId && !currentFlightIds.has(prev.flightId) && prev.status === 'available')
+    .filter((prev) => {
+      if (!prev.flightId || prev.status !== 'available') return false;
+      return !currentFlightIds.has(prev.flightId) && !currentLegacyIds.has(prev.flightId);
+    })
     .map((prev) => ({
       queryId,
       travelDate: prev.travelDate,
@@ -180,6 +194,7 @@ async function scrapeQueryForCountry(
       departureTime: prev.departureTime,
       arrivalTime: prev.arrivalTime,
       flightId: prev.flightId,
+      flightNumber: prev.flightNumber,
       status: 'sold_out' as const,
       vpnCountry,
       fetchRunId,
@@ -187,7 +202,9 @@ async function scrapeQueryForCountry(
 
   if (withFlightIds.length > 0) {
     await prisma.priceSnapshot.createMany({
-      data: withFlightIds.map((p) => ({
+      // Drop flightIdLegacy before insert; it is only used for in-memory
+      // sold-out matching above.
+      data: withFlightIds.map(({ flightIdLegacy: _legacy, ...p }) => ({
         queryId,
         travelDate: new Date(p.travelDate),
         price: p.price,
@@ -199,6 +216,7 @@ async function scrapeQueryForCountry(
         departureTime: p.departureTime ?? null,
         arrivalTime: p.arrivalTime ?? null,
         flightId: p.flightId,
+        flightNumber: p.flightNumber ?? null,
         seatsLeft: p.seatsLeft ?? null,
         vpnCountry,
         fetchRunId,

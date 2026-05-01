@@ -55,7 +55,8 @@ model PriceSnapshot {
   bookingUrl        String?
   stops             Int      @default(0)
   duration          String?
-  flightId          String?  // stable identity: airline-HHMM-origin-dest-date
+  flightId          String?  // stable identity: airline-(flightNumber|HHMM)-origin-dest-date
+  flightNumber      String?  // human-readable flight identifier (e.g. "DL 345")
   departureTime     String?
   arrivalTime       String?
   seatsLeft         Int?

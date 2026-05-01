@@ -57,6 +57,7 @@ export async function GET(
           stops: true,
           duration: true,
           flightId: true,
+          flightNumber: true,
           departureTime: true,
           arrivalTime: true,
           seatsLeft: true,

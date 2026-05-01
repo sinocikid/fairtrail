@@ -208,6 +208,25 @@ describe('extractPrices', () => {
     ).rejects.toThrow('Unknown extraction provider');
   });
 
+  it('propagates flightNumber from llm output', async () => {
+    mockExtract.mockResolvedValue({
+      content: JSON.stringify([
+        { travelDate: '2026-06-15', price: 623, currency: 'USD', airline: 'Delta', bookingUrl: 'https://delta.com', stops: 0, duration: '5h 30m', departureTime: '10:25 AM', arrivalTime: '3:55 PM', seatsLeft: 3, flightNumber: 'DL 345' },
+        { travelDate: '2026-06-15', price: 450, currency: 'USD', airline: 'Delta', bookingUrl: 'https://delta.com', stops: 0, duration: '5h 30m', departureTime: '10:25 AM', arrivalTime: '3:55 PM', seatsLeft: 5, flightNumber: 'DL 901' },
+      ]),
+      usage: { inputTokens: 500, outputTokens: 100 },
+    });
+
+    const result = await extractPrices(
+      'Flights: Delta DL 345 $623, Delta DL 901 $450',
+      'https://flights.google.com',
+      '2026-06-15',
+    );
+    expect(result.prices).toHaveLength(2);
+    expect(result.prices[0]!.flightNumber).toBe('DL 345');
+    expect(result.prices[1]!.flightNumber).toBe('DL 901');
+  });
+
   it('throws when api key is missing', async () => {
     const origKey = process.env.ANTHROPIC_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;

@@ -74,6 +74,7 @@ interface QueryWithSnapshots {
     stops: number;
     duration: string | null;
     flightId: string | null;
+    flightNumber: string | null;
     departureTime: string | null;
     arrivalTime: string | null;
     seatsLeft: number | null;
@@ -102,6 +103,7 @@ async function loadQueryWithSnapshots(id: string): Promise<QueryWithSnapshots | 
       stops: true,
       duration: true,
       flightId: true,
+      flightNumber: true,
       departureTime: true,
       arrivalTime: true,
       seatsLeft: true,
