@@ -27,6 +27,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 RUN npm run build --workspace=@fairtrail/web
+RUN npm run build --workspace=@fairtrail/cli
 
 FROM docker.io/library/node:22-alpine AS runner
 RUN apk add --no-cache libc6-compat openssl chromium
@@ -81,10 +82,18 @@ COPY --from=proddeps --chown=node:node /app/node_modules/ts-algebra ./node_modul
 COPY --from=proddeps --chown=node:node /app/node_modules/openai ./node_modules/openai
 COPY --from=proddeps --chown=node:node /app/node_modules/@google ./node_modules/@google
 
+# Ink terminal UI (fairtrail-tui). Bundle is self contained except for @prisma/client,
+# playwright, ioredis (resolved from /app/node_modules via Node's parent walk).
+COPY --from=builder --chown=node:node /app/packages/cli/dist /app/packages/cli/dist
+RUN printf '#!/bin/sh\nexec node /app/packages/cli/dist/index.js "$@"\n' > /home/node/.npm-global/bin/fairtrail-tui \
+    && chmod +x /home/node/.npm-global/bin/fairtrail-tui \
+    && chown node:node /home/node/.npm-global/bin/fairtrail-tui
+
 RUN mkdir -p /app/data && chown node:node /app/data
 
 COPY --chown=node:node docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 USER node
+RUN fairtrail-tui --help >/dev/null
 EXPOSE 3003
 ENTRYPOINT ["./docker-entrypoint.sh"]
