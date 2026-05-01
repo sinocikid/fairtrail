@@ -30,9 +30,15 @@ export async function PATCH(
     }
   }
 
-  const interval = Number(body.scrapeInterval);
-  if (!ALLOWED_INTERVALS.includes(interval)) {
-    return apiError(`scrapeInterval must be one of: ${ALLOWED_INTERVALS.join(', ')}`, 400);
+  // Accept null (means "follow global") or one of the allowed numeric intervals.
+  let interval: number | null;
+  if (body.scrapeInterval === null) {
+    interval = null;
+  } else {
+    interval = Number(body.scrapeInterval);
+    if (!ALLOWED_INTERVALS.includes(interval)) {
+      return apiError(`scrapeInterval must be null or one of: ${ALLOWED_INTERVALS.join(', ')}`, 400);
+    }
   }
 
   // Update this query and all siblings in the group

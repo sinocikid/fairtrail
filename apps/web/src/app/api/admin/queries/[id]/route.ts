@@ -16,7 +16,9 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
 
   if (typeof body.active === 'boolean') data.active = body.active;
-  if (typeof body.scrapeInterval === 'number' && [1, 3, 6, 12, 24].includes(body.scrapeInterval)) {
+  if (body.scrapeInterval === null) {
+    data.scrapeInterval = null;
+  } else if (typeof body.scrapeInterval === 'number' && [1, 3, 6, 12, 24].includes(body.scrapeInterval)) {
     data.scrapeInterval = body.scrapeInterval;
   }
   if (body.maxDurationHours === null) {

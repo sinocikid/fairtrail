@@ -11,7 +11,7 @@ interface SeedData {
   destinationName: string;
   active: boolean;
   lookAheadDays: number;
-  scrapeInterval: number;
+  scrapeInterval: number | null;
   cabinClass: string;
   preferredAirlines: string[];
   snapshotCount: number;
@@ -49,10 +49,11 @@ export function SeedRouteRow({ seed }: { seed: SeedData }) {
   };
 
   const handleIntervalChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value === '' ? null : Number(e.target.value);
     await fetch(`/api/admin/seed-routes/${seed.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scrapeInterval: Number(e.target.value) }),
+      body: JSON.stringify({ scrapeInterval: value }),
     });
     router.refresh();
   };
@@ -103,7 +104,8 @@ export function SeedRouteRow({ seed }: { seed: SeedData }) {
         </div>
       )}
       <div className={styles.rowActions}>
-        <select className={styles.intervalSelect} value={seed.scrapeInterval} onChange={handleIntervalChange}>
+        <select className={styles.intervalSelect} value={seed.scrapeInterval ?? ''} onChange={handleIntervalChange}>
+          <option value="">Follow global</option>
           <option value={1}>Every 1h</option>
           <option value={3}>Every 3h</option>
           <option value={6}>Every 6h</option>

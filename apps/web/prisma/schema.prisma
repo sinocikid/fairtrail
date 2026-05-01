@@ -33,7 +33,7 @@ model Query {
   expiresAt       DateTime
   firstViewedAt   DateTime?
   vpnCountries    String[] @default([]) // ISO 3166-1 codes for VPN comparison
-  scrapeInterval  Int      @default(3) // hours
+  scrapeInterval  Int?     // hours, null = follow extractionConfig.scrapeInterval (global)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

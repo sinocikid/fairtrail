@@ -14,18 +14,18 @@ const INTERVALS = [
 
 interface Props {
   queryId: string;
-  currentInterval: number;
+  currentInterval: number | null;
 }
 
 export function ScrapeInterval({ queryId, currentInterval }: Props) {
-  const [interval, setInterval] = useState(currentInterval);
+  const [interval, setInterval] = useState<number | null>(currentInterval);
   const [saving, setSaving] = useState(false);
 
   const token = typeof window !== 'undefined' ? getDeleteToken(queryId) : null;
 
   if (!token) return null;
 
-  const handleChange = async (value: number) => {
+  const handleChange = async (value: number | null) => {
     if (value === interval) return;
 
     setSaving(true);
@@ -51,6 +51,13 @@ export function ScrapeInterval({ queryId, currentInterval }: Props) {
     <div className={styles.root}>
       <span className={styles.label}>Check every</span>
       <div className={styles.options}>
+        <button
+          className={`${styles.option} ${interval === null ? styles.active : ''}`}
+          onClick={() => handleChange(null)}
+          disabled={saving}
+        >
+          Auto
+        </button>
         {INTERVALS.map((opt) => (
           <button
             key={opt.value}
