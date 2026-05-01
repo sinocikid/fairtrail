@@ -2,17 +2,41 @@
 
 import { useId, useRef, useState } from 'react';
 import type { ParseAmbiguity, ParsedFlightQuery } from '@/lib/scraper/parse-query';
+import type { ConversationMessage } from '@/lib/clarification-types';
 import styles from './ClarificationCard.module.css';
+
+/**
+ * Strip the trailing assistant turns that correspond to the active questions —
+ * those are rendered as the live form below, not duplicated in history.
+ */
+function priorTurns(
+  conversation: ConversationMessage[],
+  activeQuestions: string[],
+): ConversationMessage[] {
+  if (!conversation.length || !activeQuestions.length) return conversation;
+  const activeSet = new Set(activeQuestions);
+  let endIdx = conversation.length;
+  while (
+    endIdx > 0 &&
+    conversation[endIdx - 1]!.role === 'assistant' &&
+    activeSet.has(conversation[endIdx - 1]!.content)
+  ) {
+    endIdx -= 1;
+  }
+  return conversation.slice(0, endIdx);
+}
 
 export function ClarificationCard({
   ambiguities,
   partialParsed,
+  conversation = [],
   onAnswer,
   onReset,
   loading,
 }: {
   ambiguities: ParseAmbiguity[];
   partialParsed: ParsedFlightQuery | null;
+  conversation?: ConversationMessage[];
   onAnswer: (answer: string) => Promise<boolean>;
   onReset: () => void;
   loading: boolean;
@@ -41,6 +65,8 @@ export function ClarificationCard({
     }
   };
 
+  const history = priorTurns(conversation, ambiguities.map((a) => a.question));
+
   return (
     <div className={styles.root}>
       {partialParsed && (
@@ -49,6 +75,22 @@ export function ClarificationCard({
           <span className={styles.arrow}>→</span>
           <span className={styles.code}>{partialParsed.destination}</span>
           <span className={styles.narrowing}>narrowing...</span>
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className={styles.history} aria-label="Clarification history">
+          {history.map((turn, i) => (
+            <div
+              key={`${i}-${turn.role}`}
+              className={`${styles.turn} ${turn.role === 'assistant' ? styles.assistantTurn : styles.userTurn}`}
+            >
+              <span className={styles.turnLabel}>
+                {turn.role === 'assistant' ? 'Fairtrail' : 'You'}
+              </span>
+              <span className={styles.turnContent}>{turn.content}</span>
+            </div>
+          ))}
         </div>
       )}
 
