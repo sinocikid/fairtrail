@@ -205,7 +205,7 @@ export function ManualEntryForm({
         onChange={(v) => { setOrigin(v); clearError('origin'); }}
         error={fieldErrors.origin}
         excludeCode={destination?.code}
-        autoFocus
+        autoFocus={!iv}
       />
 
       <AirportCombobox
