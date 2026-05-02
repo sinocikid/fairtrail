@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.0] - 2026-05-01
+
+### Added
+- **Max trip duration filter**: AI parser now extracts duration caps phrased as "under 20 hours", "max 12h", "no more than Nh" and similar. Filtering runs server side after extraction, so it stays deterministic and provider agnostic. The manual entry form gains a matching "Max trip duration (hours)" input under Advanced options (#57).
+- **Flight numbers in price history**: snapshots persist real flight identifiers (e.g. DL 345). The history table renders airline plus flight number so users can distinguish multiple flights from the same carrier. Sold out detection retains a transitional matcher that pairs new flightId synthesis with the legacy time only form, so existing rows are not flagged as disappeared on rollout (#57).
+- **Ink terminal UI ships in the Docker image**: `fairtrail --headless`, `--list`, `--view <id>`, `--backend`, `--model` work after `curl install`. The bash wrapper forwards these flags to `fairtrail-tui` inside the running container with TTY auto detection. `--tmux` stays dev only because tmux pane spawning currently runs on the host shell and would not see the container cwd (#57).
+- **Scrape interval can follow the global default**: per query `scrapeInterval` is now nullable. New trackers default to follow the admin global. Chart page exposes an "Auto" button alongside the fixed intervals; admin tables expose a "Follow global" option. Existing trackers keep their pinned numeric value (#57).
+- Admin search page in the dashboard.
+- `install.sh` accepts `--no-browser` for SSH and CI installs.
+
+### Fixed
+- Ink TUI no longer ships two React copies. tsup now externalizes all CLI runtime deps so Node resolves a single React (the one ink's react-reconciler also uses), unbreaking hooks (#57).
+- Workspace local commander v13 is no longer clobbered by transitive root commander v2.20.3 inside the runner image (#57).
+- Docker `deps` and `proddeps` stages now COPY `packages/cli/package.json` so `npm ci` installs CLI workspace dev deps including tsup (#57).
+- Root `package.json` `ci` script also builds the `@fairtrail/cli` workspace, catching tsup misconfiguration locally instead of only inside Docker (#57).
+- Stacked clarification dialog and component test infrastructure (#54).
+- Per leg date validation for round trip clarifications (#54).
+- Image references in compose files are fully qualified for Podman compatibility (#55).
+- ClarificationCard submit handling and accessibility hardening.
+- SearchBar preview session storage namespaced by surface so admin and public previews do not collide.
+- All clarification answers are collected before the final submit.
+
 ## [0.4.3] - 2026-04-15
 
 ### Fixed
