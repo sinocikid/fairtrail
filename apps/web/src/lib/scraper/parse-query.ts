@@ -20,6 +20,7 @@ export interface ParsedFlightQuery {
   flexibility: number; // days
   maxPrice: number | null;
   maxStops: number | null; // 0 = nonstop only, 1 = max 1 stop, null = any
+  maxDurationHours: number | null; // total trip duration cap (hours), null = no cap
   preferredAirlines: string[]; // empty = no preference
   timePreference: 'any' | 'morning' | 'afternoon' | 'evening' | 'redeye';
   cabinClass: 'economy' | 'premium_economy' | 'business' | 'first';
@@ -60,6 +61,7 @@ Return ONLY valid JSON with this exact shape:
     "flexibility": number of days of flexibility (0 if exact dates),
     "maxPrice": number or null,
     "maxStops": number or null (0 if "nonstop"/"direct", 1 if "max 1 stop", null if no preference),
+    "maxDurationHours": number or null (e.g. 20 for "duration under 20 hours"),
     "preferredAirlines": ["Delta", "United"] or [] if no preference,
     "timePreference": "any" | "morning" | "afternoon" | "evening" | "redeye",
     "cabinClass": "economy" | "premium_economy" | "business" | "first",
@@ -133,6 +135,7 @@ Parsing rules:
 - tripType: "one_way" if no return date is mentioned or user says "one way"; "round_trip" if a return date is given or user says "round trip" or "return". Default to "one_way" when ambiguous (no return info)
 - Extract airline preferences if mentioned
 - Extract price caps if mentioned (e.g. "under $800")
+- Extract trip duration caps when phrased as "under N hours", "less than Nh", "max N hours", "duration < Nh", "shorter than N hours", "no more than Nh", or "flights shorter than N hours". Round fractional values up to whole hours. Set maxDurationHours to null if not mentioned.
 - If no stop preference stated, maxStops is null
 - Extract currency if mentioned (e.g. "in euros" → "EUR", "prices in pounds" → "GBP", "in CAD" → "CAD", "¥" → "JPY"). Set to null if not mentioned by the user. Use ISO 4217 codes.
 - Ignore trailing fragments or incomplete words at the end of the input — parse what you can
@@ -207,6 +210,7 @@ function normalizeAirports(parsed: Record<string, unknown>): ParsedFlightQuery {
     destination: destinations[0]?.code ?? '',
     destinationName: destinations[0]?.name ?? '',
     currency: typeof p.currency === 'string' && p.currency ? p.currency : null,
+    maxDurationHours: typeof p.maxDurationHours === 'number' && p.maxDurationHours > 0 ? p.maxDurationHours : null,
     dateFrom,
     dateTo,
     outboundDates: outboundDates?.length ? outboundDates : undefined,

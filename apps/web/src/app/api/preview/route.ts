@@ -56,6 +56,7 @@ interface ScrapeRouteParams {
   tripType: string;
   maxPrice: number | null;
   maxStops: number | null;
+  maxDurationHours: number | null;
   preferredAirlines: string[];
   timePreference: string;
   currency: string | null;
@@ -102,6 +103,7 @@ function toPreviewRequestPayload(body: Record<string, unknown>): PreviewRequestP
     dateTo: String(body.dateTo || ''),
     maxPrice: body.maxPrice === undefined || body.maxPrice === null ? null : Number(body.maxPrice),
     maxStops: body.maxStops === undefined || body.maxStops === null ? null : Number(body.maxStops),
+    maxDurationHours: body.maxDurationHours === undefined || body.maxDurationHours === null ? null : Number(body.maxDurationHours),
     preferredAirlines: Array.isArray(body.preferredAirlines) ? body.preferredAirlines.map(String) : [],
     timePreference: typeof body.timePreference === 'string' ? body.timePreference : 'any',
     cabinClass: typeof body.cabinClass === 'string' ? body.cabinClass : 'economy',
@@ -190,6 +192,7 @@ async function scrapeRoute(params: ScrapeRouteParams): Promise<PriceData[]> {
   const filters = {
     maxPrice: params.maxPrice,
     maxStops: params.maxStops,
+    maxDurationHours: params.maxDurationHours,
     preferredAirlines: airlines,
     timePreference: params.timePreference,
     cabinClass,
@@ -304,7 +307,7 @@ async function scrapeRoute(params: ScrapeRouteParams): Promise<PriceData[]> {
 
 async function runPreview(payload: PreviewRequestPayload): Promise<PreviewResultPayload> {
   const { origins, destinations, isOneWay } = validatePreviewPayload(payload);
-  const { dateFrom, dateTo, maxPrice, maxStops, preferredAirlines, timePreference, cabinClass, tripType, currency: bodyCurrency } = payload;
+  const { dateFrom, dateTo, maxPrice, maxStops, maxDurationHours, preferredAirlines, timePreference, cabinClass, tripType, currency: bodyCurrency } = payload;
   const config = await prisma.extractionConfig.findFirst({ where: { id: 'singleton' } });
   const currency: string | null = config?.defaultCurrency ?? bodyCurrency;
   const outboundDates = payload.outboundDates;
@@ -360,6 +363,7 @@ async function runPreview(payload: PreviewRequestPayload): Promise<PreviewResult
           tripType: tripType || 'round_trip',
           maxPrice: maxPrice ? Number(maxPrice) : null,
           maxStops: maxStops !== undefined && maxStops !== null ? Number(maxStops) : null,
+          maxDurationHours,
           preferredAirlines,
           timePreference: timePreference || 'any',
           currency,

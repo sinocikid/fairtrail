@@ -1,5 +1,6 @@
 import { EXTRACTION_PROVIDERS, CLI_PROVIDERS, LOCAL_PROVIDERS, type ExtractionUsage } from './ai-registry';
 import { prisma } from '@/lib/prisma';
+import { parseDurationToMinutes } from './duration';
 import type { NavigationSource } from './navigate';
 
 export interface PriceData {
@@ -13,11 +14,13 @@ export interface PriceData {
   departureTime: string | null; // e.g. "10:25 AM"
   arrivalTime: string | null; // e.g. "4:45 PM"
   seatsLeft: number | null; // e.g. 3 when "3 seats left" shown
+  flightNumber: string | null; // e.g. "DL 345"
 }
 
 export interface QueryFilters {
   maxPrice: number | null;
   maxStops: number | null;
+  maxDurationHours: number | null;
   preferredAirlines: string[];
   timePreference: string;
   cabinClass: string;
@@ -81,7 +84,8 @@ Return ONLY valid JSON — an array of UP TO ${maxResults} objects with this exa
     "duration": "11h 20m",
     "departureTime": "10:25 AM",
     "arrivalTime": "4:45 PM",
-    "seatsLeft": 3
+    "seatsLeft": 3,
+    "flightNumber": "DL 345"
   }
 ]
 ${filterSection}
@@ -96,6 +100,7 @@ ${bookingUrlRule}
 - departureTime: the departure time as shown (e.g. "10:25 AM", "7:50 PM"). Use null if not visible
 - arrivalTime: the arrival time as shown (e.g. "4:45 PM", "11:30 AM"). Use null if not visible
 - seatsLeft: if the page shows "N seats left" or "N seats left at this price", extract the number. Use null if not shown
+- flightNumber: extract the carrier code plus number when shown (e.g. "DL 345", "AA 1102", "TK 32"). Use null if only the airline name is visible without a number
 - If the travel date is not clearly visible per result, use the search date provided
 - Prefer variety: if multiple airlines are available, include at least one from each (up to the ${maxResults} limit)
 - Return ONLY the JSON array, no markdown, no explanation
@@ -118,7 +123,7 @@ export async function extractPrices(
   html: string,
   searchUrl: string,
   travelDateFallback: string,
-  filters: QueryFilters = { maxPrice: null, maxStops: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+  filters: QueryFilters = { maxPrice: null, maxStops: null, maxDurationHours: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
   maxResults: number = DEFAULT_MAX_RESULTS,
   resultsFound: boolean = true,
   source: NavigationSource = 'google_flights',
@@ -183,15 +188,30 @@ ${html}`;
   }
 
   // Filter out obviously invalid entries
-  const prices = raw.filter(
+  const validPrices = raw.filter(
     (p) => p.price > 0 && p.airline && p.airline.length > 0
   );
 
-  if (prices.length === 0) {
+  if (validPrices.length === 0) {
     console.log(`[extract] FAIL all_filtered_out — ${raw.length} raw results all invalid`);
     return { prices: [], usage: result.usage, failureReason: 'all_filtered_out' };
   }
 
-  console.log(`[extract] OK — ${prices.length} flights extracted (cheapest: $${prices[0]?.price})`);
-  return { prices, usage: result.usage };
+  // Apply server side duration filter. The LLM extracts the duration string
+  // (e.g. "11h 20m") and we parse it deterministically here so the filter is
+  // testable without the LLM and consistent across providers.
+  const durationFiltered = filters.maxDurationHours
+    ? validPrices.filter((p) => {
+        const minutes = parseDurationToMinutes(p.duration);
+        return minutes === null || minutes <= filters.maxDurationHours! * 60;
+      })
+    : validPrices;
+
+  if (durationFiltered.length === 0) {
+    console.log(`[extract] FAIL all_filtered_out — duration filter (max ${filters.maxDurationHours}h) removed all ${validPrices.length} flights`);
+    return { prices: [], usage: result.usage, failureReason: 'all_filtered_out' };
+  }
+
+  console.log(`[extract] OK — ${durationFiltered.length} flights extracted (cheapest: $${durationFiltered[0]?.price})`);
+  return { prices: durationFiltered, usage: result.usage };
 }

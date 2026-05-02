@@ -10,6 +10,7 @@ interface Snapshot {
   stops: number;
   duration: string | null;
   flightId: string | null;
+  flightNumber: string | null;
   departureTime: string | null;
   arrivalTime: string | null;
   seatsLeft: number | null;
@@ -86,7 +87,7 @@ export function PriceHistory({ snapshots }: { snapshots: Snapshot[] }) {
     return (
       <tr key={s.id}>
         <td className={styles.date}>{formatDateTime(s.scrapedAt)}</td>
-        <td>{s.airline}</td>
+        <td>{s.airline}{s.flightNumber ? ` ${s.flightNumber}` : ''}</td>
         <td className={styles.times}>
           {s.departureTime || s.arrivalTime
             ? `${s.departureTime ?? '?'} - ${s.arrivalTime ?? '?'}`

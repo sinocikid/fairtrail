@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
         fixtureHtml,
         'https://www.google.com/travel/flights?q=flights+from+JFK+to+LAX',
         '2026-06-15',
-        { maxPrice: null, maxStops: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
+        { maxPrice: null, maxStops: null, maxDurationHours: null, preferredAirlines: [], timePreference: 'any', cabinClass: 'economy' },
         10,
         true,
         'google_flights',

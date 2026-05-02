@@ -18,6 +18,7 @@ interface RouteInput {
     bookingUrl: string | null;
     stops?: number;
     duration?: string | null;
+    flightNumber?: string | null;
   }>;
 }
 
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
     flexibility,
     maxPrice,
     maxStops,
+    maxDurationHours,
     preferredAirlines,
     timePreference,
     cabinClass,
@@ -41,6 +43,16 @@ export async function POST(request: NextRequest) {
     vpnCountries: bodyVpnCountries,
   } = body;
   const currency: string | null = typeof bodyCurrency === 'string' && bodyCurrency ? bodyCurrency : null;
+
+  // Validate maxDurationHours: integer between 1 and 48 hours, or null.
+  let maxDurationHoursValidated: number | null = null;
+  if (maxDurationHours !== undefined && maxDurationHours !== null) {
+    const n = Number(maxDurationHours);
+    if (!Number.isInteger(n) || n < 1 || n > 48) {
+      return apiError('maxDurationHours must be an integer between 1 and 48', 400);
+    }
+    maxDurationHoursValidated = n;
+  }
   const vpnCountries: string[] = Array.isArray(bodyVpnCountries)
     ? bodyVpnCountries.filter((c: unknown) => typeof c === 'string' && /^[A-Z]{2}$/.test(c))
     : [];
@@ -134,6 +146,7 @@ export async function POST(request: NextRequest) {
         flexibility: routeFlex,
         maxPrice: maxPrice ? Number(maxPrice) : null,
         maxStops: maxStops !== undefined && maxStops !== null ? Number(maxStops) : null,
+        maxDurationHours: maxDurationHoursValidated,
         preferredAirlines: routeAirlines,
         timePreference: timePreference || 'any',
         cabinClass: cabinClass || 'economy',
@@ -158,6 +171,7 @@ export async function POST(request: NextRequest) {
           bookingUrl: f.bookingUrl || '',
           stops: f.stops ?? 0,
           duration: f.duration ?? null,
+          flightNumber: f.flightNumber ?? null,
         })),
       });
     }

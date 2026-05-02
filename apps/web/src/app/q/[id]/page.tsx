@@ -61,7 +61,7 @@ interface QueryWithSnapshots {
     firstViewedAt: Date | null;
     groupId: string | null;
     currency: string | null;
-    scrapeInterval: number;
+    scrapeInterval: number | null;
     vpnCountries: string[];
   };
   snapshots: Array<{
@@ -74,6 +74,7 @@ interface QueryWithSnapshots {
     stops: number;
     duration: string | null;
     flightId: string | null;
+    flightNumber: string | null;
     departureTime: string | null;
     arrivalTime: string | null;
     seatsLeft: number | null;
@@ -83,6 +84,7 @@ interface QueryWithSnapshots {
     scrapedAt: string;
   }>;
   lastRun: { startedAt: Date } | null;
+  globalScrapeInterval: number;
 }
 
 async function loadQueryWithSnapshots(id: string): Promise<QueryWithSnapshots | null> {
@@ -102,6 +104,7 @@ async function loadQueryWithSnapshots(id: string): Promise<QueryWithSnapshots | 
       stops: true,
       duration: true,
       flightId: true,
+      flightNumber: true,
       departureTime: true,
       arrivalTime: true,
       seatsLeft: true,
@@ -118,6 +121,11 @@ async function loadQueryWithSnapshots(id: string): Promise<QueryWithSnapshots | 
     select: { startedAt: true },
   });
 
+  const globalConfig = await prisma.extractionConfig.findFirst({
+    where: { id: 'singleton' },
+    select: { scrapeInterval: true },
+  });
+
   return {
     query,
     snapshots: snapshots.map((s) => ({
@@ -126,6 +134,7 @@ async function loadQueryWithSnapshots(id: string): Promise<QueryWithSnapshots | 
       scrapedAt: s.scrapedAt.toISOString(),
     })),
     lastRun,
+    globalScrapeInterval: globalConfig?.scrapeInterval ?? 3,
   };
 }
 
@@ -308,7 +317,8 @@ export default async function ChartPage({ params }: Props) {
           <p className={styles.footerText}>
             Tracked since {formatDate(primary.query.createdAt)}
             {allQueries[0]?.lastRun && ` · Last checked ${timeAgo(allQueries[0].lastRun.startedAt)}`}
-            {allQueries[0]?.lastRun && !expired && ` · Next check in ~${primary.query.scrapeInterval}h`}
+            {allQueries[0]?.lastRun && !expired && ` · Next check in ~${primary.query.scrapeInterval ?? primary.globalScrapeInterval}h`}
+            {primary.query.scrapeInterval === null && !expired && ' (follows global)'}
           </p>
           {!expired && (
             <>

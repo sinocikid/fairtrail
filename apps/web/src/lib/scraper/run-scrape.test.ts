@@ -220,6 +220,62 @@ describe('runScrapeForQuery', () => {
     });
   });
 
+  it('does not mark legacy-id snapshot as sold_out when same flight comes back with a flight number', async () => {
+    // Existing row was persisted before the flightNumber rollout, so its
+    // flightId is the legacy time-only form.
+    mockPrisma.priceSnapshot.findMany.mockResolvedValue([{
+      flightId: 'Delta-1025-JFK-LAX-2026-06-15',
+      flightNumber: null,
+      price: 350,
+      airline: 'Delta',
+      travelDate: new Date('2026-06-15'),
+      currency: 'USD',
+      bookingUrl: 'https://example.com',
+      stops: 0,
+      duration: '5h',
+      departureTime: '10:25 AM',
+      arrivalTime: '3:25 PM',
+      status: 'available',
+    }]);
+
+    // The new extraction returns the same physical flight (same airline, same
+    // departure time) but now carries the real flight number, so the new
+    // synthesis tail is DL345 instead of 1025.
+    mockExtractPrices.mockResolvedValue({
+      prices: [{
+        travelDate: '2026-06-15',
+        price: 360,
+        currency: 'USD',
+        airline: 'Delta',
+        bookingUrl: 'https://delta.com',
+        stops: 0,
+        duration: '5h',
+        departureTime: '10:25 AM',
+        arrivalTime: '3:25 PM',
+        seatsLeft: 4,
+        flightNumber: 'DL 345',
+      }],
+      usage: { inputTokens: 100, outputTokens: 20 },
+    });
+
+    const result = await runScrapeForQuery('q1');
+
+    expect(result.status).toBe('success');
+    // createMany must be called once (the new available row) and NOT a second
+    // time for sold-out — otherwise every existing flight at deploy would be
+    // flagged as sold-out.
+    expect(mockPrisma.priceSnapshot.createMany).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.priceSnapshot.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          airline: 'Delta',
+          flightNumber: 'DL 345',
+          flightId: 'Delta-DL345-JFK-LAX-2026-06-15',
+        }),
+      ]),
+    });
+  });
+
   it('accepts null bookingUrl without error (schema is String?)', async () => {
     mockExtractPrices.mockResolvedValue({
       prices: [{

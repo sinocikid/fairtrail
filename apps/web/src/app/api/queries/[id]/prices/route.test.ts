@@ -4,12 +4,14 @@ import { NextRequest } from 'next/server';
 const mockQueryFindUnique = vi.fn();
 const mockSnapshotFindMany = vi.fn();
 const mockFetchRunFindFirst = vi.fn();
+const mockExtractionConfigFindFirst = vi.fn().mockResolvedValue({ scrapeInterval: 3 });
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     query: { findUnique: (...args: unknown[]) => mockQueryFindUnique(...args) },
     priceSnapshot: { findMany: (...args: unknown[]) => mockSnapshotFindMany(...args) },
     fetchRun: { findFirst: (...args: unknown[]) => mockFetchRunFindFirst(...args) },
+    extractionConfig: { findFirst: (...args: unknown[]) => mockExtractionConfigFindFirst(...args) },
   },
 }));
 

@@ -34,6 +34,15 @@ FAIRTRAIL_API_KEY="${FAIRTRAIL_API_KEY:-}"
 FAIRTRAIL_API_PROVIDER="${FAIRTRAIL_API_PROVIDER:-}"
 FAIRTRAIL_EXTRA_ENV="${FAIRTRAIL_EXTRA_ENV:-}"
 
+# Parse install-time flags. --no-browser suppresses the auto-open at the end
+# (use for SSH, CI, or server installs that have no display).
+FAIRTRAIL_OPEN_BROWSER="${FAIRTRAIL_OPEN_BROWSER:-1}"
+for arg in "$@"; do
+  case "$arg" in
+    --no-browser) FAIRTRAIL_OPEN_BROWSER=0 ;;
+  esac
+done
+
 echo ""
 printf "${BOLD}  Fairtrail — Flight Price Tracker${RESET}\n"
 printf "  ${DIM}The price trail airlines don't show you${RESET}\n"
@@ -740,9 +749,11 @@ printf "  Next time, just run: ${BOLD}fairtrail${RESET}\n"
 printf "  ${DIM}Ctrl+C to stop  |  fairtrail stop  |  fairtrail help${RESET}\n"
 echo ""
 
-# Open browser automatically (skip on headless systems)
-if [ "$(uname)" = "Darwin" ] && command -v open &>/dev/null; then
-  open "http://localhost:${HOST_PORT}"
-elif [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v xdg-open &>/dev/null; then
-  xdg-open "http://localhost:${HOST_PORT}" >/dev/null 2>&1 &
+# Open browser automatically (skip on headless systems or with --no-browser)
+if [ "$FAIRTRAIL_OPEN_BROWSER" = "1" ]; then
+  if [ "$(uname)" = "Darwin" ] && command -v open &>/dev/null; then
+    open "http://localhost:${HOST_PORT}"
+  elif [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v xdg-open &>/dev/null; then
+    xdg-open "http://localhost:${HOST_PORT}" >/dev/null 2>&1 &
+  fi
 fi

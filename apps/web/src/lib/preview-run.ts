@@ -5,6 +5,7 @@ export interface PreviewRequestPayload {
   dateTo: string;
   maxPrice: number | null;
   maxStops: number | null;
+  maxDurationHours: number | null;
   preferredAirlines: string[];
   timePreference: string;
   cabinClass: string;

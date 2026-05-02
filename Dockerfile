@@ -3,6 +3,7 @@ RUN apk add --no-cache libc6-compat openssl python3 make g++
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/
+COPY packages/cli/package.json packages/cli/
 COPY apps/web/prisma ./apps/web/prisma/
 RUN npm ci --loglevel=error
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
@@ -13,6 +14,7 @@ RUN apk add --no-cache libc6-compat openssl python3 make g++
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/
+COPY packages/cli/package.json packages/cli/
 COPY apps/web/prisma ./apps/web/prisma/
 RUN npm ci --omit=dev --loglevel=error
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
@@ -21,12 +23,16 @@ FROM docker.io/library/node:22-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl python3 make g++
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+# npm hoists most deps to root, but tsup lands in packages/cli/node_modules
+# (workspace local). Without this, the CLI build fails with `tsup: not found`.
+COPY --from=deps /app/packages/cli/node_modules ./packages/cli/node_modules
 COPY . .
 ARG COMMIT_SHA=unknown
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 RUN npm run build --workspace=@fairtrail/web
+RUN npm run build --workspace=@fairtrail/cli
 
 FROM docker.io/library/node:22-alpine AS runner
 RUN apk add --no-cache libc6-compat openssl chromium
@@ -38,7 +44,7 @@ ENV CHROME_PATH=/usr/bin/chromium-browser
 
 # CLI provider support: writable npm global prefix for node user
 # *-host dirs are read-only mount points; entrypoint copies into writable dirs
-RUN mkdir -p /home/node/.npm-global \
+RUN mkdir -p /home/node/.npm-global/bin \
              /home/node/.claude /home/node/.claude-host \
              /home/node/.codex /home/node/.codex-host && \
     chown -R node:node /home/node/.npm-global \
@@ -81,10 +87,26 @@ COPY --from=proddeps --chown=node:node /app/node_modules/ts-algebra ./node_modul
 COPY --from=proddeps --chown=node:node /app/node_modules/openai ./node_modules/openai
 COPY --from=proddeps --chown=node:node /app/node_modules/@google ./node_modules/@google
 
+# Ink terminal UI (fairtrail-tui). The CLI's runtime deps (ink, react,
+# chalk, commander, ink-*, plus their transitives) are not in the lean
+# Next standalone trace, so we ship the full proddeps node_modules under
+# /app/packages/cli/node_modules. Two layers:
+#   1. Root proddeps node_modules — supplies ink, react, etc. (hoisted).
+#   2. Workspace local proddeps node_modules — overrides commander v13 and
+#      chalk v5 that npm could not hoist due to version conflicts at root.
+# Without layer 2 the wrapper picks up commander v2.20.3 which is ESM hostile.
+COPY --from=builder --chown=node:node /app/packages/cli/dist /app/packages/cli/dist
+COPY --from=proddeps --chown=node:node /app/node_modules /app/packages/cli/node_modules
+COPY --from=proddeps --chown=node:node /app/packages/cli/node_modules /app/packages/cli/node_modules
+RUN printf '#!/bin/sh\nexec node /app/packages/cli/dist/index.js "$@"\n' > /home/node/.npm-global/bin/fairtrail-tui \
+    && chmod +x /home/node/.npm-global/bin/fairtrail-tui \
+    && chown node:node /home/node/.npm-global/bin/fairtrail-tui
+
 RUN mkdir -p /app/data && chown node:node /app/data
 
 COPY --chown=node:node docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 USER node
+RUN fairtrail-tui --help >/dev/null
 EXPOSE 3003
 ENTRYPOINT ["./docker-entrypoint.sh"]

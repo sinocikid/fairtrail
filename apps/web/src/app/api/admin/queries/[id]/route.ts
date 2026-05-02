@@ -16,8 +16,15 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
 
   if (typeof body.active === 'boolean') data.active = body.active;
-  if (typeof body.scrapeInterval === 'number' && [1, 3, 6, 12, 24].includes(body.scrapeInterval)) {
+  if (body.scrapeInterval === null) {
+    data.scrapeInterval = null;
+  } else if (typeof body.scrapeInterval === 'number' && [1, 3, 6, 12, 24].includes(body.scrapeInterval)) {
     data.scrapeInterval = body.scrapeInterval;
+  }
+  if (body.maxDurationHours === null) {
+    data.maxDurationHours = null;
+  } else if (typeof body.maxDurationHours === 'number' && Number.isInteger(body.maxDurationHours) && body.maxDurationHours >= 1 && body.maxDurationHours <= 48) {
+    data.maxDurationHours = body.maxDurationHours;
   }
 
   const updated = await prisma.query.update({ where: { id }, data });

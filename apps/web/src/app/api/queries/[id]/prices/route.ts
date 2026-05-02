@@ -30,7 +30,13 @@ export async function GET(
       expiresAt: true,
       createdAt: true,
       active: true,
+      scrapeInterval: true,
     },
+  });
+
+  const globalConfig = await prisma.extractionConfig.findFirst({
+    where: { id: 'singleton' },
+    select: { scrapeInterval: true },
   });
 
   if (!query) {
@@ -57,6 +63,7 @@ export async function GET(
           stops: true,
           duration: true,
           flightId: true,
+          flightNumber: true,
           departureTime: true,
           arrivalTime: true,
           seatsLeft: true,
@@ -75,11 +82,14 @@ export async function GET(
     select: { startedAt: true, status: true },
   });
 
+  const effectiveInterval = query.scrapeInterval ?? globalConfig?.scrapeInterval ?? 3;
+
   return apiSuccess({
     query,
     snapshots,
     lastChecked: lastRun?.startedAt ?? null,
     lastStatus: lastRun?.status ?? null,
     snapshotCount: snapshots.length,
+    effectiveInterval,
   });
 }

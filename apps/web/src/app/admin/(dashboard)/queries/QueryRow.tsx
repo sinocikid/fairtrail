@@ -13,7 +13,7 @@ interface QueryData {
   dateTo: string;
   active: boolean;
   expiresAt: string;
-  scrapeInterval: number;
+  scrapeInterval: number | null;
   snapshotCount: number;
   runCount: number;
 }
@@ -42,10 +42,11 @@ export function QueryRow({ query }: { query: QueryData }) {
   };
 
   const handleIntervalChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value === '' ? null : Number(e.target.value);
     await fetch(`/api/admin/queries/${query.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scrapeInterval: Number(e.target.value) }),
+      body: JSON.stringify({ scrapeInterval: value }),
     });
     router.refresh();
   };
@@ -67,9 +68,10 @@ export function QueryRow({ query }: { query: QueryData }) {
       <div className={styles.rowActions}>
         <select
           className={styles.intervalSelect}
-          value={query.scrapeInterval}
+          value={query.scrapeInterval ?? ''}
           onChange={handleIntervalChange}
         >
+          <option value="">Follow global</option>
           <option value={1}>Every 1h</option>
           <option value={3}>Every 3h</option>
           <option value={6}>Every 6h</option>

@@ -19,6 +19,7 @@ model Query {
   flexibility     Int      @default(0)
   maxPrice        Float?
   maxStops        Int?
+  maxDurationHours Int?     // optional cap on total trip duration in hours
   preferredAirlines String[] @default([])
   timePreference  String   @default("any")
   cabinClass      String   @default("economy")
@@ -32,7 +33,7 @@ model Query {
   expiresAt       DateTime
   firstViewedAt   DateTime?
   vpnCountries    String[] @default([]) // ISO 3166-1 codes for VPN comparison
-  scrapeInterval  Int      @default(3) // hours
+  scrapeInterval  Int?     // hours, null = follow extractionConfig.scrapeInterval (global)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -55,7 +56,8 @@ model PriceSnapshot {
   bookingUrl        String?
   stops             Int      @default(0)
   duration          String?
-  flightId          String?  // stable identity: airline-HHMM-origin-dest-date
+  flightId          String?  // stable identity: airline-(flightNumber|HHMM)-origin-dest-date
+  flightNumber      String?  // human-readable flight identifier (e.g. "DL 345")
   departureTime     String?
   arrivalTime       String?
   seatsLeft         Int?

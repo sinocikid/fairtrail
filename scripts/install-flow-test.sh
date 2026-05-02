@@ -138,6 +138,54 @@ test_ansi_variables_defined() {
 }
 
 # ---------------------------------------------------------------------------
+# Test: fairtrail-cli dispatches Ink TUI flags to docker exec
+# ---------------------------------------------------------------------------
+test_cli_dispatches_tui_flags() {
+  local cli="apps/web/public/fairtrail-cli"
+  if grep -q '\-\-headless|\-\-list|\-\-view|\-\-backend|\-\-model' "$cli"; then
+    pass "fairtrail-cli dispatches Ink TUI flags"
+  else
+    fail "fairtrail-cli should dispatch --headless/--list/--view/--backend/--model"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test: fairtrail-cli defines cmd_tui with TTY detection
+# ---------------------------------------------------------------------------
+test_cli_has_cmd_tui() {
+  local cli="apps/web/public/fairtrail-cli"
+  if grep -q 'cmd_tui()' "$cli" && grep -q 'fairtrail-tui' "$cli"; then
+    pass "fairtrail-cli defines cmd_tui that invokes fairtrail-tui"
+  else
+    fail "fairtrail-cli should define cmd_tui invoking fairtrail-tui"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test: install.sh supports --no-browser flag
+# ---------------------------------------------------------------------------
+test_install_supports_no_browser() {
+  local installer="apps/web/public/install.sh"
+  if grep -q '\-\-no-browser' "$installer" && grep -q 'FAIRTRAIL_OPEN_BROWSER' "$installer"; then
+    pass "install.sh supports --no-browser flag"
+  else
+    fail "install.sh should support --no-browser flag"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test: Dockerfile ships fairtrail-tui binary
+# ---------------------------------------------------------------------------
+test_dockerfile_ships_cli() {
+  local dockerfile="Dockerfile"
+  if grep -q 'workspace=@fairtrail/cli' "$dockerfile" && grep -q 'fairtrail-tui --help' "$dockerfile"; then
+    pass "Dockerfile builds @fairtrail/cli and smoke tests fairtrail-tui"
+  else
+    fail "Dockerfile should build @fairtrail/cli and run fairtrail-tui --help smoke check"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Run all tests
 # ---------------------------------------------------------------------------
 echo ""
@@ -152,6 +200,10 @@ test_env_host_port
 test_entrypoint_port_warning
 test_install_overrides
 test_ansi_variables_defined
+test_cli_dispatches_tui_flags
+test_cli_has_cmd_tui
+test_install_supports_no_browser
+test_dockerfile_ships_cli
 
 echo ""
 printf "${BOLD}Results: ${GREEN}%d passed${RESET}, ${RED}%d failed${RESET}\n" "$PASS" "$FAIL"
